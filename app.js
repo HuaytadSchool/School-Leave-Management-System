@@ -2,7 +2,7 @@
 let currentUser = null;
 let currentLineProfile = null;
 const LIFF_ID = "2010662195-iJjI0NIA"; // Replace with actual LIFF ID
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwg0ZgCJhyM1K27756K9e5WbyVZ61n09M3l0s9hCnuG1BNaV0r_dH_X9RajxuSblUzjpA/exec"; // Replace with deployed GAS API URL
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw9Umcq-rGgsixPxlWP8M9FlQQM3Cq30_y5HCS6VO1yNCPyAUIVYbLz8SXbwIx1surunA/exec"; // Replace with deployed GAS API URL
 
 // UI Utilities
 const showLoader = (show = true) => {
@@ -128,7 +128,11 @@ async function setupUIForUser(user) {
 
   document.getElementById('mobile-nav').classList.remove('hidden');
 
-  if (user.role === 'Admin' || user.role === 'HR' || user.role === 'Director') {
+  if (user.role === 'Admin' || user.role === 'HR') {
+    document.getElementById('nav-admin').classList.remove('hidden');
+    document.getElementById('nav-admin').classList.add('flex');
+  }
+  if (user.role === 'Supervisor' || user.role === 'Admin' || user.role === 'HR') {
     document.getElementById('nav-supervisor').classList.remove('hidden');
     document.getElementById('nav-supervisor').classList.add('flex');
   }
@@ -150,6 +154,26 @@ function switchMainView(viewId) {
   // Load data based on view
   if (viewId === 'view-supervisor') loadSupervisorData();
 }
+
+window.logout = () => {
+  Swal.fire({
+    title: 'ออกจากระบบ?',
+    text: "คุณต้องการออกจากระบบใช่หรือไม่?",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'ออกจากระบบ',
+    cancelButtonText: 'ยกเลิก'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      if (liff.isLoggedIn()) {
+        liff.logout();
+      }
+      window.location.reload();
+    }
+  });
+};
 
 function switchTeacherTab(tabId) {
   // Tabs styling
@@ -430,9 +454,10 @@ const toBase64 = file => new Promise((resolve, reject) => {
 });
 
 // Supervisor Functions
+async function loadSupervisorData() {
   showLoader(true);
   try {
-    const pending = await api.getPendingRequestsForApprover(currentUser.id, currentUser.role);
+    const pending = await api.getPendingRequestsForSupervisor(currentUser.id);
 
     document.getElementById('supervisor-badge-count').textContent = pending.length;
 
@@ -450,7 +475,7 @@ const toBase64 = file => new Promise((resolve, reject) => {
           <div class="flex justify-between items-start">
             <div>
               <h3 class="font-bold text-slate-800">${req.teacher_name}</h3>
-              <span class="text-xs text-slate-500">สถานะ: ${req.status === 'Pending_HR' ? 'รอฝ่ายบุคคลตรวจสอบ' : (req.status === 'Pending_Director' ? 'รอผู้อำนวยการอนุมัติ' : req.status)}</span>
+              <span class="text-xs text-slate-500">แผนก: ${req.department}</span>
             </div>
             <span class="px-2 py-1 rounded bg-slate-100 text-xs font-medium text-slate-700 border border-slate-200">${req.leave_type_id}</span>
           </div>
@@ -461,8 +486,8 @@ const toBase64 = file => new Promise((resolve, reject) => {
           </div>
           
           <div class="flex gap-2 mt-2">
-            <button onclick="handleApproveReject('${req.id}', 'approve')" class="flex-1 bg-indigo-600 text-white rounded-md py-2 text-sm font-medium hover:bg-indigo-700 transition-colors">อนุมัติ</button>
-            <button onclick="handleApproveReject('${req.id}', 'reject')" class="flex-1 bg-white border border-red-200 text-red-600 rounded-md py-2 text-sm font-medium hover:bg-red-50 transition-colors">ไม่อนุมัติ</button>
+            <button onclick="handleApproveReject('${req.id}', 'Approved')" class="flex-1 bg-indigo-600 text-white rounded-md py-2 text-sm font-medium hover:bg-indigo-700 transition-colors">อนุมัติ</button>
+            <button onclick="handleApproveReject('${req.id}', 'Rejected')" class="flex-1 bg-white border border-red-200 text-red-600 rounded-md py-2 text-sm font-medium hover:bg-red-50 transition-colors">ไม่อนุมัติ</button>
           </div>
         </div>
       `;
@@ -476,8 +501,8 @@ const toBase64 = file => new Promise((resolve, reject) => {
   }
 }
 
-window.handleApproveReject = async (reqId, action) => {
-  const actionTxt = action === 'approve' ? 'อนุมัติ' : 'ไม่อนุมัติ';
+window.handleApproveReject = async (reqId, status) => {
+  const actionTxt = status === 'Approved' ? 'อนุมัติ' : 'ไม่อนุมัติ';
   const { value: comment } = await Swal.fire({
     title: `ยืนยัน${actionTxt}`,
     input: 'text',
@@ -485,13 +510,13 @@ window.handleApproveReject = async (reqId, action) => {
     showCancelButton: true,
     confirmButtonText: 'ยืนยัน',
     cancelButtonText: 'ยกเลิก',
-    confirmButtonColor: action === 'approve' ? '#4f46e5' : '#e02424'
+    confirmButtonColor: status === 'Approved' ? '#4f46e5' : '#e02424'
   });
 
   if (comment !== undefined) { // if not cancelled
     showLoader(true);
     try {
-      await api.updateLeaveStatusAPI(reqId, action, comment, currentUser.id, currentUser.role);
+      await api.updateLeaveStatusAPI(reqId, status, comment, currentUser.id);
       swalSuccess('บันทึกสำเร็จ');
       loadSupervisorData();
     } catch (err) {

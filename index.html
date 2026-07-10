@@ -85,6 +85,9 @@
         <div class="flex items-center gap-4">
           <span id="desktop-user-name" class="text-sm font-medium text-slate-600"></span>
           <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold" id="desktop-user-avatar">?</div>
+          <button onclick="logout()" class="ml-4 text-slate-400 hover:text-red-500 transition-colors" title="ออกจากระบบ">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
         </div>
       </div>
     </div>
@@ -161,6 +164,9 @@
           <h2 class="text-xl font-bold text-slate-800" id="teacher-welcome-name">สวัสดี</h2>
           <p class="text-sm text-slate-500" id="teacher-welcome-dept">แผนก: -</p>
         </div>
+        <button onclick="logout()" class="text-slate-400 hover:text-red-500 transition-colors md:hidden p-2" title="ออกจากระบบ">
+          <i class="fa-solid fa-right-from-bracket text-xl"></i>
+        </button>
       </div>
 
       <!-- Tab Navigation -->
