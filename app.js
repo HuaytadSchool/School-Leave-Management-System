@@ -2,7 +2,7 @@
 let currentUser = null;
 let currentLineProfile = null;
 const LIFF_ID = "2010662195-iJjI0NIA"; // Replace with actual LIFF ID
-const GAS_WEB_APP_URL = "YOUR_GAS_WEB_APP_URL"; // Replace with deployed GAS API URL
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzWLAc_7TxqA8MsOmY4-iqwSd_JcJIDD9sTxKx8HrRhqqa5uY72BSyjV0qJHu6ZiVgEWA/exec"; // Replace with deployed GAS API URL
 
 // UI Utilities
 const showLoader = (show = true) => {
@@ -33,7 +33,7 @@ const api = new Proxy({}, {
           args: args
         })
       });
-      
+
       const result = await response.json();
       if (!result.success) {
         throw new Error(result.error);
@@ -49,10 +49,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     showLoader(true);
     // Wait for liff sdk to load
     if (typeof liff !== 'undefined') {
-      if(LIFF_ID === "YOUR_LIFF_ID_HERE") {
+      if (LIFF_ID === "YOUR_LIFF_ID_HERE") {
         console.warn("LIFF ID not configured. Running in standalone mode.");
         // Standalone Dev Mode Mock
-        mockAuth('mock_line_user_id'); 
+        mockAuth('mock_line_user_id');
       } else {
         await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) {
@@ -100,7 +100,7 @@ document.getElementById('form-bind-user').addEventListener('submit', async (e) =
   const surname = document.getElementById('teacherSurname').value;
   const department = document.getElementById('teacherDept').value;
   const phone = document.getElementById('teacherPhone').value;
-  
+
   showLoader(true);
   try {
     const lineUserId = currentLineProfile ? currentLineProfile.userId : 'mock_line_user_id';
@@ -127,7 +127,7 @@ async function setupUIForUser(user) {
   // Header Info
   document.getElementById('desktop-user-name').textContent = `${user.name} ${user.surname}`;
   document.getElementById('desktop-user-avatar').textContent = user.name.charAt(0);
-  
+
   document.getElementById('mobile-nav').classList.remove('hidden');
 
   if (user.role === 'Admin' || user.role === 'HR') {
@@ -143,7 +143,7 @@ async function setupUIForUser(user) {
   switchMainView('view-teacher');
   document.getElementById('teacher-welcome-name').textContent = `สวัสดีคุณ ${user.name}`;
   document.getElementById('teacher-welcome-dept').textContent = `แผนก: ${user.department}`;
-  
+
   await loadTeacherData();
   showLoader(false);
 }
@@ -154,7 +154,7 @@ function switchMainView(viewId) {
   document.getElementById(viewId).classList.remove('hidden');
 
   // Load data based on view
-  if(viewId === 'view-supervisor') loadSupervisorData();
+  if (viewId === 'view-supervisor') loadSupervisorData();
 }
 
 function switchTeacherTab(tabId) {
@@ -179,7 +179,7 @@ async function loadTeacherData() {
     // 1. Load Quotas
     const quotas = await api.getLeaveQuotas(currentUser.id);
     renderQuotas(quotas);
-    
+
     // 2. Load Types for Dropdown
     const types = await api.getLeaveTypes();
     const select = document.getElementById('leave_type');
@@ -201,8 +201,8 @@ async function loadTeacherData() {
 function renderQuotas(quotas) {
   const container = document.getElementById('quota-container');
   container.innerHTML = '';
-  
-  if(!quotas || quotas.length === 0) {
+
+  if (!quotas || quotas.length === 0) {
     container.innerHTML = '<div class="text-sm text-slate-500 p-4">ไม่มีข้อมูลโควต้าการลา</div>';
     return;
   }
@@ -250,7 +250,7 @@ function renderHistory(history) {
   const container = document.getElementById('history-container');
   container.innerHTML = '';
 
-  if(!history || history.length === 0) {
+  if (!history || history.length === 0) {
     container.innerHTML = '<div class="text-sm text-slate-500 p-4 text-center">ไม่มีประวัติการลา</div>';
     return;
   }
@@ -258,7 +258,7 @@ function renderHistory(history) {
   history.forEach(h => {
     // Create clickable card
     const dateStr = new Date(h.created_at).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
-    
+
     const card = document.createElement('div');
     card.className = "bg-white p-4 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:shadow-md transition-shadow";
     card.innerHTML = `
@@ -272,7 +272,7 @@ function renderHistory(history) {
       <p class="text-xs text-slate-600 truncate mt-2">เหตุผล: ${h.reason}</p>
       <div class="text-[10px] text-slate-400 mt-2 text-right">ยื่นเมื่อ ${dateStr}</div>
     `;
-    
+
     card.addEventListener('click', () => showHistoryModal(h));
     container.appendChild(card);
   });
@@ -280,7 +280,7 @@ function renderHistory(history) {
 
 function showHistoryModal(h) {
   let cancelBtn = '';
-  if(h.status === 'Pending') {
+  if (h.status === 'Pending') {
     cancelBtn = `<button id="btn-cancel-req" class="mt-4 w-full bg-red-50 text-red-600 border border-red-200 rounded-md py-2 text-sm font-medium hover:bg-red-100 transition-colors">ยกเลิกคำขอนี้</button>`;
   }
 
@@ -305,7 +305,7 @@ function showHistoryModal(h) {
     confirmButtonColor: '#4f46e5',
     didOpen: () => {
       const btn = document.getElementById('btn-cancel-req');
-      if(btn) {
+      if (btn) {
         btn.addEventListener('click', async () => {
           Swal.close();
           const confirm = await Swal.fire({
@@ -318,13 +318,13 @@ function showHistoryModal(h) {
             confirmButtonText: 'ใช่, ยกเลิกเลย',
             cancelButtonText: 'ย้อนกลับ'
           });
-          if(confirm.isConfirmed) {
+          if (confirm.isConfirmed) {
             showLoader(true);
             try {
               await api.cancelLeaveRequest(h.id);
               swalSuccess('ยกเลิกสำเร็จ');
               loadTeacherData();
-            } catch(err) {
+            } catch (err) {
               swalError(err.message);
             } finally {
               showLoader(false);
@@ -341,17 +341,17 @@ const calcDays = () => {
   const start = document.getElementById('start_date').value;
   const end = document.getElementById('end_date').value;
   const el = document.getElementById('calculated_days');
-  
-  if(!start || !end) {
+
+  if (!start || !end) {
     el.textContent = "0 วัน";
     el.dataset.days = 0;
     return;
   }
-  
+
   let startDate = new Date(start);
   let endDate = new Date(end);
-  
-  if(endDate < startDate) {
+
+  if (endDate < startDate) {
     el.textContent = "วันที่ไม่ถูกต้อง";
     el.dataset.days = 0;
     return;
@@ -361,11 +361,11 @@ const calcDays = () => {
   let count = 0;
   let curDate = new Date(startDate);
   while (curDate <= endDate) {
-      let dayOfWeek = curDate.getDay();
-      if(dayOfWeek !== 0 && dayOfWeek !== 6) count++; // 0=Sun, 6=Sat
-      curDate.setDate(curDate.getDate() + 1);
+    let dayOfWeek = curDate.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) count++; // 0=Sun, 6=Sat
+    curDate.setDate(curDate.getDate() + 1);
   }
-  
+
   el.textContent = `${count} วัน`;
   el.dataset.days = count;
 };
@@ -376,14 +376,14 @@ document.getElementById('end_date').addEventListener('change', calcDays);
 // Leave Form Submission
 document.getElementById('form-leave').addEventListener('submit', async (e) => {
   e.preventDefault();
-  
+
   const leave_type_id = document.getElementById('leave_type').value;
   const start_date = document.getElementById('start_date').value;
   const end_date = document.getElementById('end_date').value;
   const reason = document.getElementById('reason').value;
   const total_days = parseInt(document.getElementById('calculated_days').dataset.days || "0");
   const fileInput = document.getElementById('attachment');
-  
+
   if (total_days <= 0) {
     swalError('จำนวนวันลาต้องมากกว่า 0 วัน (ไม่รวมวันหยุด)');
     return;
@@ -393,7 +393,7 @@ document.getElementById('form-leave').addEventListener('submit', async (e) => {
   try {
     let fileBase64 = null;
     let fileName = null;
-    
+
     if (fileInput.files.length > 0) {
       const file = fileInput.files[0];
       fileName = file.name;
@@ -412,16 +412,16 @@ document.getElementById('form-leave').addEventListener('submit', async (e) => {
     };
 
     await api.submitLeaveRequest(payload);
-    
+
     swalSuccess('ส่งคำขอลาสำเร็จ');
     document.getElementById('form-leave').reset();
     document.getElementById('calculated_days').textContent = '0 วัน';
-    
+
     // Reload and switch to history
     await loadTeacherData();
     switchTeacherTab('history');
-    
-  } catch(err) {
+
+  } catch (err) {
     swalError(err.message);
   } finally {
     showLoader(false);
@@ -440,17 +440,17 @@ async function loadSupervisorData() {
   showLoader(true);
   try {
     const pending = await api.getPendingRequestsForSupervisor(currentUser.id);
-    
+
     document.getElementById('supervisor-badge-count').textContent = pending.length;
-    
+
     const container = document.getElementById('supervisor-pending-container');
     container.innerHTML = '';
-    
-    if(pending.length === 0) {
+
+    if (pending.length === 0) {
       container.innerHTML = '<div class="text-sm text-slate-500 p-8 text-center bg-white rounded-xl shadow-sm border border-slate-100">ไม่มีรายการรออนุมัติ</div>';
       return;
     }
-    
+
     pending.forEach(req => {
       const html = `
         <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3">
@@ -475,8 +475,8 @@ async function loadSupervisorData() {
       `;
       container.innerHTML += html;
     });
-    
-  } catch(err) {
+
+  } catch (err) {
     swalError('ดึงข้อมูลผิดพลาด: ' + err.message);
   } finally {
     showLoader(false);
@@ -494,14 +494,14 @@ window.handleApproveReject = async (reqId, status) => {
     cancelButtonText: 'ยกเลิก',
     confirmButtonColor: status === 'Approved' ? '#4f46e5' : '#e02424'
   });
-  
+
   if (comment !== undefined) { // if not cancelled
     showLoader(true);
     try {
       await api.updateLeaveStatusAPI(reqId, status, comment, currentUser.id);
       swalSuccess('บันทึกสำเร็จ');
       loadSupervisorData();
-    } catch(err) {
+    } catch (err) {
       swalError(err.message);
     } finally {
       showLoader(false);

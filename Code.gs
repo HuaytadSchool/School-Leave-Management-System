@@ -1,7 +1,7 @@
 // Config & Globals
 const CONFIG = {
   SPREADSHEET_ID: '', // Optional: If empty, uses the active spreadsheet
-  LINE_CHANNEL_ACCESS_TOKEN: 'YOUR_LINE_CHANNEL_ACCESS_TOKEN',
+  LINE_CHANNEL_ACCESS_TOKEN: 'QH1HGxWGjPmmdfxGvOao39gagWbh0u7KQfM6rB2S58fR3+JcBSUfYmfh7Ww2cLDxxAFcCeAdHSNB2WynBCpOIsSh+worEYVsRtolfTPl8yuCtN+ceuJ3MGe/gfzf1ZCSRHpJMlEx1198NcKWxAw9MgdB04t89/1O/w1cDnyilFU=',
   DRIVE_FOLDER_ID: 'YOUR_DRIVE_FOLDER_ID'
 };
 
