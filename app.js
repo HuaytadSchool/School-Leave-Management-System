@@ -1,7 +1,7 @@
 // Global State
 let currentUser = null;
 let currentLineProfile = null;
-const LIFF_ID = "YOUR_LIFF_ID_HERE"; // Replace with actual LIFF ID
+const LIFF_ID = "2010662195-iJjI0NIA"; // Replace with actual LIFF ID
 const GAS_WEB_APP_URL = "YOUR_GAS_WEB_APP_URL"; // Replace with deployed GAS API URL
 
 // UI Utilities
