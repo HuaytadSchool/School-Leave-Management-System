@@ -96,7 +96,6 @@ async function authenticateUser(lineUserId) {
 
 document.getElementById('form-bind-user').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const teacherId = document.getElementById('teacherId').value;
   const name = document.getElementById('teacherName').value;
   const surname = document.getElementById('teacherSurname').value;
   const department = document.getElementById('teacherDept').value;
@@ -106,7 +105,6 @@ document.getElementById('form-bind-user').addEventListener('submit', async (e) =
   try {
     const lineUserId = currentLineProfile ? currentLineProfile.userId : 'mock_line_user_id';
     const payload = {
-      id: teacherId,
       name: name,
       surname: surname,
       department: department,

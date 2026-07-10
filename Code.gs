@@ -133,19 +133,28 @@ function registerTeacher(dataObj) {
   const headers = data[0];
   const idIdx = headers.indexOf('id');
   
-  // Check for duplicate Teacher ID
+  // Generate Teacher ID automatically
+  // Format: T001, T002, etc.
+  let maxIdNum = 0;
   for (let i = 1; i < data.length; i++) {
-    if (data[i][idIdx] == dataObj.id) {
-      throw new Error("รหัสประจำตัวครูซ้ำ (Teacher ID already exists)");
+    const currentId = data[i][idIdx];
+    if (currentId && typeof currentId === 'string' && currentId.startsWith('T')) {
+      const numStr = currentId.substring(1);
+      const num = parseInt(numStr, 10);
+      if (!isNaN(num) && num > maxIdNum) {
+        maxIdNum = num;
+      }
     }
   }
+  const nextIdNum = maxIdNum + 1;
+  const newId = 'T' + String(nextIdNum).padStart(3, '0');
   
   // Append new teacher
   // Headers: ['id', 'name', 'surname', 'email', 'role', 'department', 'line_user_id', 'phone', 'years_of_service', 'status']
   const newRow = [];
   for (let i = 0; i < headers.length; i++) {
     const key = headers[i];
-    if (key === 'id') newRow.push(dataObj.id);
+    if (key === 'id') newRow.push(newId);
     else if (key === 'name') newRow.push(dataObj.name);
     else if (key === 'surname') newRow.push(dataObj.surname);
     else if (key === 'department') newRow.push(dataObj.department);
