@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบจัดการการลา โรงเรียนบ้านห้วยตาด</title>
+  
+  <!-- Tailwind CSS Configuration -->
+  <script>
+    tailwind = {
+      config: {
+        theme: {
+          extend: {
+            fontFamily: {
+              prompt: ['Prompt', 'sans-serif'],
+            },
+            colors: {
+              // Desaturated professional palette
+              slate: {
+                50: '#f8fafc',
+                100: '#f1f5f9',
+                200: '#e2e8f0',
+                300: '#cbd5e1',
+                400: '#94a3b8',
+                500: '#64748b',
+                600: '#475569',
+                700: '#334155',
+                800: '#1e293b',
+                900: '#0f172a',
+              },
+              indigo: {
+                50: '#eef2ff',
+                100: '#e0e7ff',
+                200: '#c3dafe',
+                300: '#a5b4fc',
+                400: '#818cf8',
+                500: '#6366f1',
+                600: '#4f46e5',
+                700: '#4338ca',
+                800: '#3730a3',
+                900: '#312e81',
+              }
+            },
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts: Prompt -->
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- LINE LIFF SDK -->
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <!-- SweetAlert2 for beautiful alerts -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <!-- External Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-prompt font-light antialiased pb-20 md:pb-0">
+
+  <!-- Full Screen Loader -->
+  <div id="loader" class="fixed inset-0 bg-white/90 z-50 flex flex-col items-center justify-center transition-opacity duration-300">
+    <div class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 mb-4"></div>
+    <p class="text-indigo-600 font-medium">กำลังโหลดข้อมูล...</p>
+  </div>
+
+  <!-- Header (Visible on Desktop, or inside views on Mobile) -->
+  <header class="bg-white shadow-sm sticky top-0 z-40 hidden md:block">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16">
+        <div class="flex items-center">
+          <div class="flex-shrink-0 flex items-center gap-2">
+            <i class="fa-solid fa-school text-indigo-600 text-2xl"></i>
+            <span class="font-bold text-xl tracking-tight text-slate-900">Ban Huay Tad</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <span id="desktop-user-name" class="text-sm font-medium text-slate-600"></span>
+          <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold" id="desktop-user-avatar">?</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    
+    <!-- ========================================== -->
+    <!-- VIEW: ONBOARDING / LOGIN -->
+    <!-- ========================================== -->
+    <div id="view-onboarding" class="view-section hidden max-w-md mx-auto mt-10">
+      <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="bg-indigo-600 p-6 text-center">
+          <i class="fa-solid fa-school text-white text-4xl mb-2"></i>
+          <h2 class="text-2xl font-bold text-white">ลงทะเบียนใช้งาน</h2>
+          <p class="text-indigo-100 text-sm mt-1">ระบบจัดการการลา โรงเรียนบ้านห้วยตาด</p>
+        </div>
+        <div class="p-6">
+          <form id="form-bind-user" class="space-y-4">
+            <div>
+              <label for="teacherId" class="block text-sm font-medium text-slate-700">รหัสประจำตัวครู (Teacher ID)</label>
+              <input type="text" id="teacherId" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label for="teacherName" class="block text-sm font-medium text-slate-700">ชื่อ (Name)</label>
+                <input type="text" id="teacherName" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border">
+              </div>
+              <div>
+                <label for="teacherSurname" class="block text-sm font-medium text-slate-700">นามสกุล (Surname)</label>
+                <input type="text" id="teacherSurname" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border">
+              </div>
+            </div>
+            <div>
+              <label for="teacherDept" class="block text-sm font-medium text-slate-700">แผนก/หมวดวิชา</label>
+              <input type="text" id="teacherDept" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border">
+            </div>
+            <div>
+              <label for="teacherPhone" class="block text-sm font-medium text-slate-700">เบอร์โทรศัพท์</label>
+              <input type="tel" id="teacherPhone" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border">
+            </div>
+            <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+              ยืนยันการลงทะเบียน
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- VIEW: TEACHER PORTAL -->
+    <!-- ========================================== -->
+    <div id="view-teacher" class="view-section hidden space-y-6">
+      <!-- Welcome Card -->
+      <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100 flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800" id="teacher-welcome-name">สวัสดี</h2>
+          <p class="text-sm text-slate-500" id="teacher-welcome-dept">แผนก: -</p>
+        </div>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div class="border-b border-slate-200">
+        <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+          <a href="#" onclick="switchTeacherTab('dashboard')" id="tab-dashboard" class="tab-link active-tab whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">ภาพรวมการลา</a>
+          <a href="#" onclick="switchTeacherTab('apply')" id="tab-apply" class="tab-link inactive-tab whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">ยื่นใบลา</a>
+          <a href="#" onclick="switchTeacherTab('history')" id="tab-history" class="tab-link inactive-tab whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">ประวัติการลา</a>
+        </nav>
+      </div>
+
+      <!-- TAB: Dashboard -->
+      <div id="teacher-tab-dashboard" class="teacher-tab-content">
+        <h3 class="text-lg font-medium text-slate-900 mb-4">โควต้าการลาของคุณ</h3>
+        <div id="quota-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Quota Cards will be injected here -->
+        </div>
+      </div>
+
+      <!-- TAB: Apply Leave -->
+      <div id="teacher-tab-apply" class="teacher-tab-content hidden">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+          <form id="form-leave" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700">ประเภทการลา</label>
+              <select id="leave_type" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border">
+                <!-- Options injected via JS -->
+              </select>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700">วันที่เริ่มต้น</label>
+                <input type="date" id="start_date" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700">วันที่สิ้นสุด</label>
+                <input type="date" id="end_date" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border">
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700">จำนวนวันลาที่คำนวณได้</label>
+              <div class="mt-1 p-3 bg-slate-50 border border-slate-200 rounded-md font-medium text-indigo-600" id="calculated_days">0 วัน</div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700">เหตุผลการลา</label>
+              <textarea id="reason" rows="3" required class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-3 border"></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700">เอกสารแนบ (ถ้ามี)</label>
+              <input type="file" id="attachment" class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-slate-300 rounded-md">
+            </div>
+            <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+              ส่งคำขอการลา
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- TAB: History -->
+      <div id="teacher-tab-history" class="teacher-tab-content hidden space-y-4">
+        <!-- History Cards will be injected here -->
+        <div id="history-container" class="space-y-3"></div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- VIEW: SUPERVISOR PORTAL -->
+    <!-- ========================================== -->
+    <div id="view-supervisor" class="view-section hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-slate-800">รายการรออนุมัติ</h2>
+        <span class="bg-amber-100 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full" id="supervisor-badge-count">0</span>
+      </div>
+      
+      <!-- Pending Approvals List -->
+      <div id="supervisor-pending-container" class="space-y-4">
+        <!-- Cards injected via JS -->
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- VIEW: ADMIN / HR PORTAL -->
+    <!-- ========================================== -->
+    <div id="view-admin" class="view-section hidden space-y-6">
+      <h2 class="text-2xl font-bold text-slate-800">Admin / HR Dashboard</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+          <div class="text-slate-500 text-sm font-medium">ครูทั้งหมด</div>
+          <div class="text-3xl font-bold text-slate-800 mt-1" id="stat-total-teacher">-</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+          <div class="text-slate-500 text-sm font-medium">ลาวันนี้</div>
+          <div class="text-3xl font-bold text-indigo-600 mt-1" id="stat-leave-today">-</div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+          <div class="text-slate-500 text-sm font-medium">รออนุมัติทั้งหมด</div>
+          <div class="text-3xl font-bold text-amber-500 mt-1" id="stat-total-pending">-</div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <h3 class="font-medium text-slate-800">ระบบจัดการ</h3>
+        </div>
+        <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button onclick="alert('Module: Manage Teachers')" class="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200">
+            <i class="fa-solid fa-users text-2xl text-slate-600 mb-2"></i>
+            <span class="text-sm font-medium">จัดการข้อมูลครู</span>
+          </button>
+          <button onclick="alert('Module: Leave Policies')" class="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200">
+            <i class="fa-solid fa-cogs text-2xl text-slate-600 mb-2"></i>
+            <span class="text-sm font-medium">ตั้งค่าโควต้าการลา</span>
+          </button>
+          <button onclick="alert('Module: Proxy Leave')" class="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200">
+            <i class="fa-solid fa-user-pen text-2xl text-slate-600 mb-2"></i>
+            <span class="text-sm font-medium">บันทึกการลาแทน</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav id="mobile-nav" class="md:hidden fixed bottom-0 w-full bg-white border-t border-slate-200 z-40 hidden pb-safe">
+    <div class="flex justify-around items-center h-16">
+      <a href="#" onclick="switchMainView('view-teacher')" class="flex flex-col items-center justify-center w-full h-full text-indigo-600">
+        <i class="fa-solid fa-house text-xl mb-1"></i>
+        <span class="text-[10px] font-medium">หน้าหลัก</span>
+      </a>
+      <a href="#" onclick="switchMainView('view-supervisor')" id="nav-supervisor" class="hidden flex-col items-center justify-center w-full h-full text-slate-500 hover:text-indigo-600">
+        <i class="fa-solid fa-clipboard-check text-xl mb-1"></i>
+        <span class="text-[10px] font-medium">อนุมัติ</span>
+      </a>
+      <a href="#" onclick="switchMainView('view-admin')" id="nav-admin" class="hidden flex-col items-center justify-center w-full h-full text-slate-500 hover:text-indigo-600">
+        <i class="fa-solid fa-chart-pie text-xl mb-1"></i>
+        <span class="text-[10px] font-medium">แอดมิน</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
