@@ -56,7 +56,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) {
-          liff.login();
+          switchMainView('view-landing');
+          showLoader(false);
           return;
         }
         currentLineProfile = await liff.getProfile();
