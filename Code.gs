@@ -35,9 +35,8 @@ function doPost(e) {
           if (action === 'approve' || action === 'reject') {
             const approverLineId = events[i].source.userId;
             const approver = getTeacherByLineId(approverLineId);
-            if (approver && (approver.role === 'Supervisor' || approver.role === 'HR' || approver.role === 'Admin')) {
-              const status = action === 'approve' ? 'Approved' : 'Rejected';
-              updateLeaveStatusAPI(reqId, status, 'ผ่าน LINE', approver.id);
+            if (approver && (approver.role === 'HR' || approver.role === 'Director' || approver.role === 'Admin')) {
+              updateLeaveStatusAPI(reqId, action, 'อนุมัติผ่าน LINE', approver.id, approver.role);
             }
           }
         }
@@ -58,9 +57,9 @@ function doPost(e) {
       'getLeaveTypes',
       'getLeaveHistory', 
       'submitLeaveRequest', 
-      'cancelLeaveRequest', 
-      'updateLeaveStatusAPI', 
-      'getPendingRequestsForSupervisor'
+      'cancelLeaveRequest',
+      'getPendingRequestsForApprover',
+      'processLeaveAction'
     ];
     
     if (allowedActions.includes(action) && typeof this[action] === 'function') {
@@ -100,6 +99,13 @@ function setupDatabase() {
       sheet.appendRow(tables[sheetName]);
       sheet.getRange(1, 1, 1, tables[sheetName].length).setFontWeight("bold");
       sheet.setFrozenRows(1);
+    }
+    
+    // Add default LeaveTypes if empty
+    if (sheetName === 'LeaveTypes' && sheet.getLastRow() === 1) {
+      sheet.appendRow(['L1', 'ลากิจ', 10, '#3b82f6', 0]);
+      sheet.appendRow(['L2', 'ลาป่วย', 30, '#ef4444', 0]);
+      sheet.appendRow(['L3', 'ลาพักผ่อน', 10, '#10b981', 1]);
     }
   }
   return "Database Setup Complete. (Please make sure to delete old Employees sheet if it exists)";
@@ -274,11 +280,11 @@ function submitLeaveRequest(data) {
     const reqId = "REQ" + new Date().getTime();
     reqSheet.appendRow([
       reqId, data.teacher_id, data.leave_type_id, data.start_date, data.end_date, 
-      data.total_days, data.reason, attachmentUrl, 'Pending', '', '', '', new Date().toISOString()
+      data.total_days, data.reason, attachmentUrl, 'Pending_HR', '', '', '', new Date().toISOString()
     ]);
     
-    // Notification to Supervisor
-    notifySupervisor(reqId, data);
+    // Notification to HR
+    notifyApprover(reqId, data, 'HR');
     
     return { success: true, reqId: reqId };
     
@@ -290,10 +296,10 @@ function submitLeaveRequest(data) {
 }
 
 function cancelLeaveRequest(reqId) {
-   return updateLeaveStatusAPI(reqId, 'Cancelled', 'ผู้ใช้ยกเลิกเอง', 'Self');
+   return updateLeaveStatusAPI(reqId, 'cancel', 'ผู้ใช้ยกเลิกเอง', 'Self', 'Self');
 }
 
-function updateLeaveStatusAPI(reqId, newStatus, comments, approverId) {
+function updateLeaveStatusAPI(reqId, action, comments, approverId, approverRole) {
   const ss = getSpreadsheet();
   const reqSheet = ss.getSheetByName('LeaveRequests');
   const qSheet = ss.getSheetByName('LeaveQuotas');
@@ -316,7 +322,24 @@ function updateLeaveStatusAPI(reqId, newStatus, comments, approverId) {
     }
     
     if (!req) throw new Error("ไม่พบข้อมูลการลา (Request not found)");
-    if (req.status !== 'Pending' && req.status !== 'Approved_L1') throw new Error("ไม่สามารถเปลี่ยนสถานะได้ (Status already finalized)");
+    if (req.status === 'Approved' || req.status === 'Rejected' || req.status === 'Cancelled') {
+       throw new Error("ไม่สามารถเปลี่ยนสถานะได้ (Status already finalized)");
+    }
+    
+    let newStatus = req.status;
+    if (action === 'cancel') {
+      newStatus = 'Cancelled';
+    } else if (action === 'reject') {
+      newStatus = 'Rejected';
+    } else if (action === 'approve') {
+      if (approverRole === 'HR' && req.status === 'Pending_HR') {
+        newStatus = 'Pending_Director';
+      } else if ((approverRole === 'Director' || approverRole === 'Admin') && req.status === 'Pending_Director') {
+        newStatus = 'Approved';
+      } else {
+        throw new Error("สิทธิ์ไม่ถูกต้อง หรือผิดขั้นตอนการอนุมัติ");
+      }
+    }
     
     // Find Quota
     const qData = qSheet.getDataRange().getValues();
@@ -344,10 +367,19 @@ function updateLeaveStatusAPI(reqId, newStatus, comments, approverId) {
     // Update Request
     reqSheet.getRange(reqRowIdx, rHeaders.indexOf('status') + 1).setValue(newStatus);
     reqSheet.getRange(reqRowIdx, rHeaders.indexOf('comments') + 1).setValue(comments || '');
-    reqSheet.getRange(reqRowIdx, rHeaders.indexOf('approver_l1_id') + 1).setValue(approverId);
     
-    // Notify Teacher
-    notifyTeacherStatusChange(req.teacher_id, newStatus, comments);
+    if (approverRole === 'HR') {
+      reqSheet.getRange(reqRowIdx, rHeaders.indexOf('approver_l1_id') + 1).setValue(approverId);
+    } else if (approverRole === 'Director' || approverRole === 'Admin') {
+      reqSheet.getRange(reqRowIdx, rHeaders.indexOf('approver_l2_id') + 1).setValue(approverId);
+    }
+    
+    // Notifications
+    if (newStatus === 'Pending_Director') {
+      notifyApprover(reqId, req, 'Director');
+    } else {
+      notifyTeacherStatusChange(req.teacher_id, newStatus, comments);
+    }
     
     return { success: true };
     
@@ -358,7 +390,7 @@ function updateLeaveStatusAPI(reqId, newStatus, comments, approverId) {
   }
 }
 
-function getPendingRequestsForSupervisor(supervisorId) {
+function getPendingRequestsForApprover(approverId, approverRole) {
   const ss = getSpreadsheet();
   const rSheet = ss.getSheetByName('LeaveRequests');
   if(!rSheet) return [];
@@ -369,7 +401,9 @@ function getPendingRequestsForSupervisor(supervisorId) {
   let pending = [];
   for (let i = 1; i < rData.length; i++) {
     let status = rData[i][rHeaders.indexOf('status')];
-    if (status === 'Pending' || status === 'Approved_L1') {
+    if (approverRole === 'HR' && status === 'Pending_HR') {
+      pending.push(arrayToObject(rHeaders, rData[i]));
+    } else if ((approverRole === 'Director' || approverRole === 'Admin') && status === 'Pending_Director') {
       pending.push(arrayToObject(rHeaders, rData[i]));
     }
   }
@@ -412,7 +446,7 @@ function uploadFileToDrive(base64, filename) {
 // LINE Notification Logics
 // -------------------------
 
-function notifySupervisor(reqId, reqData) {
+function notifyApprover(reqId, reqData, targetRole) {
   if(!CONFIG.LINE_CHANNEL_ACCESS_TOKEN || CONFIG.LINE_CHANNEL_ACCESS_TOKEN.includes("YOUR_")) return;
   
   const ss = getSpreadsheet();
@@ -424,9 +458,9 @@ function notifySupervisor(reqId, reqData) {
   const teacher = teachers.find(t => t.id == reqData.teacher_id);
   if(!teacher) return;
   
-  const supervisors = teachers.filter(t => t.role === 'Supervisor' && t.department === teacher.department && t.line_user_id);
+  const approvers = teachers.filter(t => t.role === targetRole && t.line_user_id);
   
-  supervisors.forEach(sup => {
+  approvers.forEach(sup => {
     const flex = {
       "type": "flex",
       "altText": "คำขออนุมัติการลาใหม่",

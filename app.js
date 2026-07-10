@@ -128,11 +128,7 @@ async function setupUIForUser(user) {
 
   document.getElementById('mobile-nav').classList.remove('hidden');
 
-  if (user.role === 'Admin' || user.role === 'HR') {
-    document.getElementById('nav-admin').classList.remove('hidden');
-    document.getElementById('nav-admin').classList.add('flex');
-  }
-  if (user.role === 'Supervisor' || user.role === 'Admin' || user.role === 'HR') {
+  if (user.role === 'Admin' || user.role === 'HR' || user.role === 'Director') {
     document.getElementById('nav-supervisor').classList.remove('hidden');
     document.getElementById('nav-supervisor').classList.add('flex');
   }
@@ -434,10 +430,9 @@ const toBase64 = file => new Promise((resolve, reject) => {
 });
 
 // Supervisor Functions
-async function loadSupervisorData() {
   showLoader(true);
   try {
-    const pending = await api.getPendingRequestsForSupervisor(currentUser.id);
+    const pending = await api.getPendingRequestsForApprover(currentUser.id, currentUser.role);
 
     document.getElementById('supervisor-badge-count').textContent = pending.length;
 
@@ -455,7 +450,7 @@ async function loadSupervisorData() {
           <div class="flex justify-between items-start">
             <div>
               <h3 class="font-bold text-slate-800">${req.teacher_name}</h3>
-              <span class="text-xs text-slate-500">แผนก: ${req.department}</span>
+              <span class="text-xs text-slate-500">สถานะ: ${req.status === 'Pending_HR' ? 'รอฝ่ายบุคคลตรวจสอบ' : (req.status === 'Pending_Director' ? 'รอผู้อำนวยการอนุมัติ' : req.status)}</span>
             </div>
             <span class="px-2 py-1 rounded bg-slate-100 text-xs font-medium text-slate-700 border border-slate-200">${req.leave_type_id}</span>
           </div>
@@ -466,8 +461,8 @@ async function loadSupervisorData() {
           </div>
           
           <div class="flex gap-2 mt-2">
-            <button onclick="handleApproveReject('${req.id}', 'Approved')" class="flex-1 bg-indigo-600 text-white rounded-md py-2 text-sm font-medium hover:bg-indigo-700 transition-colors">อนุมัติ</button>
-            <button onclick="handleApproveReject('${req.id}', 'Rejected')" class="flex-1 bg-white border border-red-200 text-red-600 rounded-md py-2 text-sm font-medium hover:bg-red-50 transition-colors">ไม่อนุมัติ</button>
+            <button onclick="handleApproveReject('${req.id}', 'approve')" class="flex-1 bg-indigo-600 text-white rounded-md py-2 text-sm font-medium hover:bg-indigo-700 transition-colors">อนุมัติ</button>
+            <button onclick="handleApproveReject('${req.id}', 'reject')" class="flex-1 bg-white border border-red-200 text-red-600 rounded-md py-2 text-sm font-medium hover:bg-red-50 transition-colors">ไม่อนุมัติ</button>
           </div>
         </div>
       `;
@@ -481,8 +476,8 @@ async function loadSupervisorData() {
   }
 }
 
-window.handleApproveReject = async (reqId, status) => {
-  const actionTxt = status === 'Approved' ? 'อนุมัติ' : 'ไม่อนุมัติ';
+window.handleApproveReject = async (reqId, action) => {
+  const actionTxt = action === 'approve' ? 'อนุมัติ' : 'ไม่อนุมัติ';
   const { value: comment } = await Swal.fire({
     title: `ยืนยัน${actionTxt}`,
     input: 'text',
@@ -490,13 +485,13 @@ window.handleApproveReject = async (reqId, status) => {
     showCancelButton: true,
     confirmButtonText: 'ยืนยัน',
     cancelButtonText: 'ยกเลิก',
-    confirmButtonColor: status === 'Approved' ? '#4f46e5' : '#e02424'
+    confirmButtonColor: action === 'approve' ? '#4f46e5' : '#e02424'
   });
 
   if (comment !== undefined) { // if not cancelled
     showLoader(true);
     try {
-      await api.updateLeaveStatusAPI(reqId, status, comment, currentUser.id);
+      await api.updateLeaveStatusAPI(reqId, action, comment, currentUser.id, currentUser.role);
       swalSuccess('บันทึกสำเร็จ');
       loadSupervisorData();
     } catch (err) {
