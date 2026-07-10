@@ -2,7 +2,7 @@
 let currentUser = null;
 let currentLineProfile = null;
 const LIFF_ID = "2010662195-iJjI0NIA"; // Replace with actual LIFF ID
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzWLAc_7TxqA8MsOmY4-iqwSd_JcJIDD9sTxKx8HrRhqqa5uY72BSyjV0qJHu6ZiVgEWA/exec"; // Replace with deployed GAS API URL
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwg0ZgCJhyM1K27756K9e5WbyVZ61n09M3l0s9hCnuG1BNaV0r_dH_X9RajxuSblUzjpA/exec"; // Replace with deployed GAS API URL
 
 // UI Utilities
 const showLoader = (show = true) => {
