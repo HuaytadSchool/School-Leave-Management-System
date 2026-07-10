@@ -98,7 +98,6 @@ document.getElementById('form-bind-user').addEventListener('submit', async (e) =
   e.preventDefault();
   const name = document.getElementById('teacherName').value;
   const surname = document.getElementById('teacherSurname').value;
-  const department = document.getElementById('teacherDept').value;
   const phone = document.getElementById('teacherPhone').value;
 
   showLoader(true);
@@ -107,7 +106,7 @@ document.getElementById('form-bind-user').addEventListener('submit', async (e) =
     const payload = {
       name: name,
       surname: surname,
-      department: department,
+      department: '-', // Not used anymore
       phone: phone,
       line_user_id: lineUserId
     };
@@ -141,7 +140,7 @@ async function setupUIForUser(user) {
   // Default view is Teacher
   switchMainView('view-teacher');
   document.getElementById('teacher-welcome-name').textContent = `สวัสดีคุณ ${user.name}`;
-  document.getElementById('teacher-welcome-dept').textContent = `แผนก: ${user.department}`;
+  document.getElementById('teacher-welcome-dept').textContent = `โรงเรียนบ้านห้วยตาด`;
 
   await loadTeacherData();
   showLoader(false);
