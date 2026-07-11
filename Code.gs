@@ -75,7 +75,8 @@ function doPost(e) {
       'getHolidays',
       'saveHoliday',
       'deleteHoliday',
-      'yearlyReset'
+      'yearlyReset',
+      'getSignatories'
     ];
     
     if (allowedActions.includes(action) && typeof this[action] === 'function') {
@@ -790,6 +791,29 @@ function deleteHoliday(id) {
     }
   }
   throw new Error("ไม่พบวันหยุด (Holiday not found)");
+}
+
+function getSignatories() {
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName('Teachers');
+  if (!sheet) return { director: '', hr: '' };
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return { director: '', hr: '' };
+  const h = data[0];
+  const roleIdx = h.indexOf('role');
+  const statusIdx = h.indexOf('status');
+  const prefixIdx = h.indexOf('prefix');
+  const nameIdx = h.indexOf('name');
+  const surnameIdx = h.indexOf('surname');
+  let director = '', hr = '';
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][statusIdx] !== 'Active') continue;
+    const fullName = [data[i][prefixIdx], data[i][nameIdx], data[i][surnameIdx]].filter(Boolean).join('');
+    if (!director && data[i][roleIdx] === 'Director') director = fullName;
+    if (!hr && data[i][roleIdx] === 'HR') hr = fullName;
+    if (director && hr) break;
+  }
+  return { director, hr };
 }
 
 // Yearly rollover: reset every quota's used/pending to 0, remaining = total
