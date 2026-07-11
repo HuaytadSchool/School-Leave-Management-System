@@ -401,21 +401,69 @@ function renderTeacher(quotas, history) {
   const ini = initials(u.name);
   const aColor = avatarColor(u.id);
 
-  const quotaCards = (quotas || []).map(q => {
+  // WARNING thresholds (ครั้ง/รอบการประเมิน) — แก้ตัวเลขตามเกณฑ์จริงของโรงเรียน
+  const WARN_TIMES = 8;   // สีส้ม: เริ่มระวัง
+  const DANGER_TIMES = 12; // สีแดง: ใกล้กระทบการประเมิน
+
+  // นับจำนวนครั้งที่อนุมัติแล้วต่อประเภทการลา
+  const countByType = {};
+  (history || []).filter(r => r.status === 'Approved').forEach(r => {
+    countByType[r.leave_type_id] = (countByType[r.leave_type_id] || 0) + 1;
+  });
+
+  // แยกประเภทหลัก (ลากิจ + ลาป่วย) vs ประเภทอื่น
+  const primaryQ   = (quotas || []).filter(q => /ลากิจ|ป่วย/.test(q.type_name));
+  const secondaryQ = (quotas || []).filter(q => !/ลากิจ|ป่วย/.test(q.type_name));
+
+  const primaryCards = primaryQ.map(q => {
     const total = Number(q.total_quota) || 0;
-    const used = Number(q.used_days) || 0;
-    const pct = total > 0 ? Math.min(1, used / total) : 0;
+    const used  = Number(q.used_days) || 0;
+    const rem   = Number(q.remaining_days) || 0;
+    const count = countByType[q.leave_type_id] || 0;
+    const pct   = total > 0 ? Math.min(1, used / total) : 0;
+    const ringColor = count >= DANGER_TIMES ? '#ef4444' : count >= WARN_TIMES ? '#f59e0b' : q.color_code;
+    const countColor = count >= DANGER_TIMES ? '#ef4444' : count >= WARN_TIMES ? '#f59e0b' : '#94a3b8';
     return `
-      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
-        <div style="width:64px;height:64px;border-radius:50%;background:conic-gradient(${q.color_code} ${Math.round(pct * 360)}deg,#eef2f7 0deg);display:flex;align-items:center;justify-content:center">
-          <div style="width:50px;height:50px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center">
-            <div style="font-size:14px;font-weight:800;color:#0f172a">${Number(q.remaining_days) || 0}</div>
-            <div style="font-size:8px;color:#94a3b8">จาก ${total}</div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div style="width:90px;height:90px;border-radius:50%;background:conic-gradient(${ringColor} ${Math.round(pct * 360)}deg,#eef2f7 0deg);display:flex;align-items:center;justify-content:center">
+          <div style="width:72px;height:72px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div style="font-size:22px;font-weight:800;color:#0f172a;line-height:1">${rem}</div>
+            <div style="font-size:9px;color:#94a3b8">จาก ${total} วัน</div>
           </div>
         </div>
-        <div style="font-size:11px;font-weight:600;color:#475569;text-align:center">${esc(q.type_name)}</div>
+        <div style="font-size:12px;font-weight:700;color:#475569;text-align:center">${esc(q.type_name)}</div>
+        <div style="font-size:11px;font-weight:600;color:${countColor}">ใช้ไป ${used} วัน (${count} ครั้ง)</div>
       </div>`;
   }).join('') || '<div style="font-size:12px;color:#94a3b8;padding:8px">ไม่มีข้อมูลโควตา</div>';
+
+  const secondaryItems = secondaryQ.map(q => {
+    const total = Number(q.total_quota) || 0;
+    const used  = Number(q.used_days) || 0;
+    const rem   = Number(q.remaining_days) || 0;
+    const count = countByType[q.leave_type_id] || 0;
+    const pct   = total > 0 ? Math.min(1, used / total) : 0;
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;background:#f8fafc;border-radius:10px">
+        <div style="width:38px;height:38px;border-radius:50%;background:conic-gradient(${q.color_code} ${Math.round(pct * 360)}deg,#eef2f7 0deg);flex:none;display:flex;align-items:center;justify-content:center">
+          <div style="width:28px;height:28px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#0f172a">${rem}</div>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700;color:#334155">${esc(q.type_name)}</div>
+          <div style="font-size:11px;color:#94a3b8">เหลือ ${rem}/${total} วัน · ใช้แล้ว ${count} ครั้ง</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const secondaryBlock = secondaryQ.length ? `
+    <div style="margin-top:14px;border-top:1px solid #f1f5f9;padding-top:12px">
+      <div onclick="var s=this.nextElementSibling;s.style.display=s.style.display==='flex'?'none':'flex'"
+           style="font-size:12px;color:#2563eb;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px">
+        ${svg('plus', 13)} ดูสิทธิ์การลาประเภทอื่นๆ
+      </div>
+      <div style="display:none;flex-direction:column;gap:8px;margin-top:10px">${secondaryItems}</div>
+    </div>` : '';
+
+  const quotaCards = `<div style="display:flex;gap:14px">${primaryCards}</div>${secondaryBlock}`;
 
   const sorted = (history || []).slice().sort((a, b) => normDate(b.start_date).localeCompare(normDate(a.start_date)));
   const recordCards = sorted.map(r => {
@@ -456,7 +504,7 @@ function renderTeacher(quotas, history) {
 
         <div style="margin:-30px 16px 0;background:#fff;border-radius:16px;box-shadow:0 12px 30px rgba(15,23,42,.1);padding:18px;position:relative;z-index:2">
           <div style="font-size:13px;font-weight:700;margin-bottom:14px">วันลาคงเหลือ</div>
-          <div style="display:flex;gap:10px">${quotaCards}</div>
+          ${quotaCards}
         </div>
 
         <div style="padding:20px 16px 0">
