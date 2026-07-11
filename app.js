@@ -5,6 +5,9 @@
 
 const LIFF_ID = "2010662195-iJjI0NIA";
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzzeorXhT7Q7JREKP7UYQTNtZZXkoBjI3FGEsV4zn9o4tPy5rT5f6hevPPTTs10KMY8HA/exec";
+// ใส่ URL ของ logo รร. (Google Drive: เปลี่ยน /file/d/ID/view เป็น /uc?id=ID) หรือ URL รูปภาพอื่น
+// ถ้าว่าง = แสดงข้อความ "รร" เหมือนเดิม
+const SCHOOL_LOGO_URL = 'https://drive.google.com/uc?id=1VrmDOJdLPCy0c5ftePNKmLyCcqdiCmmb';
 
 // ---- Global state ----
 let currentUser = null;
@@ -211,6 +214,11 @@ const api = new Proxy({}, {
 // Boot / auth
 // ===========================================================================
 document.addEventListener('DOMContentLoaded', async () => {
+  // Inject school logo into landing page if configured
+  if (SCHOOL_LOGO_URL) {
+    const el = document.getElementById('landing-logo');
+    if (el) el.innerHTML = `<img src="${SCHOOL_LOGO_URL}" style="width:100%;height:100%;object-fit:contain">`;
+  }
   try {
     showLoader(true);
     if (typeof liff !== 'undefined' && LIFF_ID && !LIFF_ID.includes('YOUR_')) {
@@ -481,7 +489,9 @@ function sidebar(role) {
   return `
     <div class="dc-sidebar" style="width:220px;flex:none;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0">
       <div class="dc-brand" style="display:flex;align-items:center;gap:10px;margin-bottom:26px;padding:0 4px">
-        <div style="width:36px;height:36px;border-radius:9px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff">รร</div>
+        ${SCHOOL_LOGO_URL
+          ? `<img src="${SCHOOL_LOGO_URL}" style="width:36px;height:36px;border-radius:9px;object-fit:contain;background:#fff">`
+          : `<div style="width:36px;height:36px;border-radius:9px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff">รร</div>`}
         <div>
           <div style="font-size:12.5px;font-weight:700;color:#fff;line-height:1.2">รร.บ้านห้วยตาด</div>
           <div style="font-size:10px;color:#94a3b8">${esc(ROLE_META[role] ? ROLE_META[role].label : role)}</div>

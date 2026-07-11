@@ -28,9 +28,10 @@ function doPost(e) {
       for (let i = 0; i < events.length; i++) {
         if (events[i].type === 'postback') {
           const data = events[i].postback.data;
-          const params = new URLSearchParams(data);
-          const action = params.get('action');
-          const reqId = params.get('reqId');
+          const params = {};
+          data.split('&').forEach(p => { const kv = p.split('='); params[kv[0]] = kv[1]; });
+          const action = params['action'];
+          const reqId = params['reqId'];
           
           if (action === 'approve' || action === 'reject') {
             const approverLineId = events[i].source.userId;
