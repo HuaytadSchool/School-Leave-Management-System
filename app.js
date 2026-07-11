@@ -996,6 +996,21 @@ function renderAdmin() {
           </div>
         </div>
 
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px">
+          <div style="font-size:14px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:6px">${svg('user', 16)} ข้อมูลผู้ลงนามในใบลา</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div>
+              <div class="dc-label">ชื่อ-นามสกุล ผู้อำนวยการ (ลงนามอนุมัติ)</div>
+              <input id="cfg-director" class="dc-input" value="${esc(DIRECTOR_NAME)}" placeholder="เช่น นายพานิก สิทธิ">
+            </div>
+            <div>
+              <div class="dc-label">ชื่อ-นามสกุล ผู้ตรวจสอบ/ผู้จัดทำ (ฝ่ายบุคคล)</div>
+              <input id="cfg-preparer" class="dc-input" value="${esc(PREPARER_NAME)}" placeholder="เช่น นางหทัยชนก ปรุงพาณิช">
+            </div>
+            <div onclick="saveDocConfig()" class="dc-hover" style="cursor:pointer;display:inline-block;background:#2563eb;color:#fff;padding:9px 18px;border-radius:9px;font-size:13px;font-weight:700;align-self:flex-start">บันทึก</div>
+          </div>
+        </div>
+
         <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:18px">
           <div style="font-size:14px;font-weight:800;color:#b91c1c;margin-bottom:4px;display:flex;align-items:center;gap:6px">${svg('alert', 16)} พื้นที่อันตราย</div>
           <div style="font-size:12.5px;color:#7f1d1d;margin-bottom:12px">การยกยอดวันลาข้ามปีจะรีเซ็ตวันลาที่ใช้ไปของบุคลากรทุกคนกลับเป็นศูนย์ และไม่สามารถย้อนกลับได้</div>
@@ -1043,6 +1058,14 @@ window.removeUser = async (id) => {
   try { await api.deleteTeacher(id); toast('ลบผู้ใช้งานแล้ว'); await loadAdmin(); }
   catch (err) { swalError(err.message); } finally { showLoader(false); }
 };
+window.saveDocConfig = () => {
+  DIRECTOR_NAME = document.getElementById('cfg-director').value.trim();
+  PREPARER_NAME = document.getElementById('cfg-preparer').value.trim();
+  localStorage.setItem('director_name', DIRECTOR_NAME);
+  localStorage.setItem('preparer_name', PREPARER_NAME);
+  toast('บันทึกข้อมูลผู้ลงนามเรียบร้อย');
+};
+
 window.confirmYearlyReset = async () => {
   const c = await Swal.fire({
     title: 'ยืนยันการยกยอดวันลาข้ามปี', icon: 'warning',
@@ -1276,6 +1299,9 @@ const toBase64 = (file) => new Promise((resolve, reject) => {
 // LEAVE FORM DOCUMENT (แบบใบลาป่วย ลาคลอดบุตร ลากิจส่วนตัว) -> print / save PDF
 // ===========================================================================
 const SCHOOL_NAME = 'โรงเรียนบ้านห้วยตาด';
+// ชื่อ ผอ. และผู้จัดทำ — ตั้งค่าได้ในหน้า Admin → บันทึกใน localStorage
+let DIRECTOR_NAME  = localStorage.getItem('director_name')  || '';
+let PREPARER_NAME  = localStorage.getItem('preparer_name')  || '';
 
 // Map a leave type name to the 3 categories on the official form
 function leaveKind(name) {
@@ -1336,7 +1362,7 @@ function buildLeaveFormHtml(rec, teacher, quotas) {
     <div style="text-align:center">วันที่ ${fill(doc.getDate(), '40px')} เดือน ${fill(THAI_MONTHS_FULL[doc.getMonth()], '120px')} พ.ศ. ${fill(doc.getFullYear() + 543, '70px')}</div>
 
     <div>เรื่อง ${fill('ขอลา' + (rec.type_name || typeName(rec.leave_type_id)), '300px')}</div>
-    <div>เรียน ${fill('ผู้อำนวยการ' + SCHOOL_NAME, '400px')}</div>
+    <div>เรียน ${fill('ผู้อำนวยการ' + SCHOOL_NAME + (DIRECTOR_NAME ? ' (' + DIRECTOR_NAME + ')' : ''), '480px')}</div>
 
     <div style="margin-top:6px">ข้าพเจ้า ${fill(name, '260px')} ตำแหน่ง ${fill(position, '200px')}</div>
     <div>สังกัด ${fill(SCHOOL_NAME + (teacher.department && teacher.department !== '-' ? ' กลุ่มสาระ/ฝ่าย ' + teacher.department : ''), '540px')}</div>
@@ -1367,6 +1393,7 @@ function buildLeaveFormHtml(rec, teacher, quotas) {
           </tbody>
         </table>
         <div style="margin-top:16px">(ลงชื่อ) <span style="${line}min-width:180px">&nbsp;</span> ผู้ตรวจสอบ</div>
+        <div style="text-align:center;font-size:13px">${PREPARER_NAME ? '(' + esc(PREPARER_NAME) + ')' : '(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)'}</div>
         <div>ตำแหน่ง <span style="${line}min-width:200px">&nbsp;</span></div>
         <div>วันที่ <span style="${line}min-width:40px">&nbsp;</span> / <span style="${line}min-width:40px">&nbsp;</span> / <span style="${line}min-width:60px">&nbsp;</span></div>
       </div>
@@ -1382,7 +1409,8 @@ function buildLeaveFormHtml(rec, teacher, quotas) {
         <div>${box(approved)} อนุญาต ${box(rec.status === 'Rejected')} ไม่อนุญาต</div>
         <div style="${line}width:100%;margin-top:8px">${esc(rec.comments || '')}</div>
         <div style="margin-top:10px">(ลงชื่อ) <span style="${line}min-width:180px">&nbsp;</span></div>
-        <div>ตำแหน่ง <span style="${line}min-width:200px">&nbsp;</span> ผู้อำนวยการ${esc(SCHOOL_NAME)}</div>
+        <div style="text-align:center;font-size:13px">${DIRECTOR_NAME ? '(' + esc(DIRECTOR_NAME) + ')' : '(&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)'}</div>
+        <div>ตำแหน่ง ผู้อำนวยการ${esc(SCHOOL_NAME)}</div>
         <div>วันที่ <span style="${line}min-width:40px">&nbsp;</span> / <span style="${line}min-width:40px">&nbsp;</span> / <span style="${line}min-width:60px">&nbsp;</span></div>
       </div>
     </div>
