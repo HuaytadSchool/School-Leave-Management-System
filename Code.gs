@@ -489,7 +489,7 @@ function updateLeaveStatusAPI(reqId, action, comments, approverId, approverRole)
       const hrName = hrTeacher ? `${hrTeacher.prefix || ''}${hrTeacher.name} ${hrTeacher.surname}` : 'ฝ่ายบุคคล';
       notifyApprover(reqId, req, 'Director', hrName);
     } else {
-      notifyTeacherStatusChange(req.teacher_id, newStatus, comments, req);
+      notifyTeacherStatusChange(req.teacher_id, newStatus, comments, req, approverRole);
     }
     
     return { success: true };
@@ -931,6 +931,14 @@ function notifyApprover(reqId, reqData, targetRole, reviewerName) {
           { "type": "text", "text": `ประเภท: ${typeName}`, "size": "sm", "color": "#666666" },
           { "type": "text", "text": `วันที่: ${dateText} (${reqData.total_days} วัน)`, "size": "sm", "color": "#666666" }
         ]
+      },
+      { "type": "separator", "margin": "xl" },
+      {
+        "type": "box", "layout": "vertical", "margin": "md",
+        "contents": [
+          { "type": "text", "text": "เหตุผลการลา:", "color": "#aaaaaa", "size": "xs" },
+          { "type": "text", "text": String(reqData.reason || '-'), "wrap": true, "color": "#333333", "size": "sm", "margin": "sm" }
+        ]
       }
     ];
 
@@ -978,7 +986,7 @@ function notifyApprover(reqId, reqData, targetRole, reviewerName) {
   });
 }
 
-function notifyTeacherStatusChange(teacherId, status, comment, req) {
+function notifyTeacherStatusChange(teacherId, status, comment, req, approverRole) {
   if (!CONFIG.LINE_CHANNEL_ACCESS_TOKEN || CONFIG.LINE_CHANNEL_ACCESS_TOKEN.includes("YOUR_")) return;
   if (status !== 'Approved' && status !== 'Rejected') return;
 
@@ -997,7 +1005,9 @@ function notifyTeacherStatusChange(teacherId, status, comment, req) {
   const headerBg    = isApproved ? '#06C755' : '#e02424';
   const headerText  = isApproved ? 'อนุมัติใบลาเรียบร้อย' : 'ไม่อนุมัติใบลา';
   const altText     = isApproved ? 'แจ้งผลการอนุมัติใบลา: อนุมัติแล้ว' : 'แจ้งผลการอนุมัติใบลา: ไม่อนุมัติ';
-  const commentLabel = isApproved ? 'หมายเหตุจากผู้อำนวยการ:' : 'เหตุผล:';
+  const commentLabel = isApproved
+    ? (approverRole === 'HR' ? 'หมายเหตุจากฝ่ายบุคคล:' : 'หมายเหตุจากผู้อำนวยการ:')
+    : (approverRole === 'HR' ? 'เหตุผลจากฝ่ายบุคคล:' : 'เหตุผลจากผู้อำนวยการ:');
 
   const flex = {
     "type": "flex",
