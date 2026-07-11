@@ -53,6 +53,7 @@ function doPost(e) {
       'setupDatabase',
       'getTeacherByLineId',
       'registerTeacher',
+      'adminLogin',
       'getLeaveQuotas',
       'getLeaveTypes',
       'getLeaveHistory',
@@ -161,7 +162,6 @@ function registerTeacher(dataObj) {
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
   const idIdx = headers.indexOf('id');
-  const roleIdx = headers.indexOf('role');
   const statusIdx = headers.indexOf('status');
   const lineIdx = headers.indexOf('line_user_id');
 
@@ -183,14 +183,8 @@ function registerTeacher(dataObj) {
   }
   const newId = 'T' + String(maxIdNum + 1).padStart(3, '0');
 
-  // Bootstrap: if no Active Admin exists yet, the first registrant becomes Admin+Active
-  let hasActiveAdmin = false;
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][roleIdx] === 'Admin' && data[i][statusIdx] === 'Active') { hasActiveAdmin = true; break; }
-  }
-  const role = hasActiveAdmin ? 'Teacher' : 'Admin';
-  const status = hasActiveAdmin ? 'Pending' : 'Active';
-
+  // All LINE registrants start as Pending Teacher; the system admin (backend door)
+  // approves them and assigns roles. Quotas are seeded on approval.
   const values = {
     id: newId,
     prefix: dataObj.prefix || '',
@@ -198,20 +192,48 @@ function registerTeacher(dataObj) {
     surname: dataObj.surname || '',
     position: dataObj.position || '',
     department: dataObj.department || '',
-    role: role,
+    role: 'Teacher',
     email: dataObj.email || '',
     phone: dataObj.phone || '',
     start_date: dataObj.start_date || '',
     line_user_id: dataObj.line_user_id || '',
-    status: status,
+    status: 'Pending',
     created_at: new Date().toISOString()
   };
   sheet.appendRow(headers.map(k => values[k] !== undefined ? values[k] : ''));
 
-  // If auto-activated (bootstrap admin), seed quotas immediately
-  if (status === 'Active') initQuotasForUser(newId);
-
   return getTeacherByLineId(dataObj.line_user_id);
+}
+
+// -------------------------
+// Backend admin door (username/password, independent of LINE)
+// -------------------------
+
+// Credentials live in Script Properties (not in this repo). Run setAdminCredentials()
+// once from the Apps Script editor to set them; falls back to a default if unset.
+function adminLogin(username, password) {
+  const props = PropertiesService.getScriptProperties();
+  const u = props.getProperty('ADMIN_USERNAME') || 'admin';
+  const p = props.getProperty('ADMIN_PASSWORD') || 'admin1234';
+  if (String(username) === u && String(password) === p) {
+    return { id: 'ADMIN', prefix: '', name: 'ผู้ดูแลระบบ', surname: '', position: 'System Admin', department: '-', role: 'Admin', status: 'Active' };
+  }
+  throw new Error("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
+}
+
+// Run manually from the Apps Script editor (NOT web-callable) to set admin credentials.
+function setAdminCredentials(username, password) {
+  if (!username || !password) throw new Error("username และ password ห้ามว่าง");
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('ADMIN_USERNAME', String(username));
+  props.setProperty('ADMIN_PASSWORD', String(password));
+  return 'Admin credentials saved.';
+}
+
+// >>> EDIT the two values below, then press Run on THIS function (configureAdmin). <<<
+// (ห้ามกด Run ที่ setAdminCredentials ตรง ๆ เพราะจะไม่มี argument ส่งเข้าไป)
+function configureAdmin() {
+  setAdminCredentials('admin', 'ChangeMe1234');
 }
 
 // Create LeaveQuotas rows for a user from every LeaveType (skips existing).

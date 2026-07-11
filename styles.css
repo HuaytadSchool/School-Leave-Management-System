@@ -50,6 +50,35 @@ input, textarea, select { font-family: 'Sarabun', system-ui, sans-serif; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+/* ===== Responsive: HR / Director / Admin portals on tablet & mobile ===== */
+@media (max-width: 900px) {
+  .dc-grid4 { grid-template-columns: repeat(2, 1fr) !important; }
+  .dc-grid2, .dc-grid-dir { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 720px) {
+  /* Sidebar collapses into a top bar */
+  .dc-shell { flex-direction: column !important; }
+  .dc-sidebar {
+    width: 100% !important; min-height: auto !important; position: static !important;
+    flex-direction: row !important; align-items: center !important; flex-wrap: wrap;
+    gap: 10px; padding: 12px 16px !important;
+  }
+  .dc-sidebar .dc-brand { margin-bottom: 0 !important; }
+  .dc-sidebar .dc-navlabel, .dc-sidebar .dc-nav { display: none !important; }
+  .dc-sidebar .dc-leavebtn { margin: 0 !important; padding: 9px 14px !important; }
+  .dc-sidebar .dc-sidefoot {
+    border: none !important; margin: 0 0 0 auto !important; padding: 0 !important;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .dc-sidebar .dc-sidename { display: none; }
+  .dc-main { padding: 18px 14px !important; }
+  .dc-grid4 { grid-template-columns: 1fr 1fr !important; }
+  .dc-fab { right: 18px !important; }
+}
+@media (max-width: 420px) {
+  .dc-grid4 { grid-template-columns: 1fr !important; }
+}
+
 /* Hide number input spinners */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }

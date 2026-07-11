@@ -4,12 +4,13 @@
 // ===========================================================================
 
 const LIFF_ID = "2010662195-iJjI0NIA";
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxZGcWbC2qlVS8b9rh1EC-wtZBFp58xuS_0NdFuB2Uu6A1xmE8OpXtA46XZsFvZ0Pk3MA/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzzeorXhT7Q7JREKP7UYQTNtZZXkoBjI3FGEsV4zn9o4tPy5rT5f6hevPPTTs10KMY8HA/exec";
 
 // ---- Global state ----
 let currentUser = null;
 let currentLineProfile = null;
-let leaveTypes = [];          // [{id, name, quota_days, color_code}]
+let leaveTypes = [];          // [{id, name, quota_days, color_code, count_mode, gender, needs_cert_days}]
+let _holidays = [];           // shared holiday list for day counting
 let calendarState = { year: new Date().getFullYear(), month: new Date().getMonth() };
 let hrFilters = { dateFrom: '', dateTo: '', dept: 'all', type: 'all' };
 let hrSort = { field: 'start_date', dir: 'desc' };
@@ -132,6 +133,66 @@ window.syncThaiDate = function (id) {
   if (cb) new Function(cb)();
 };
 
+// ---- Range calendar (hotel-style: pick start + end in one Thai calendar) ----
+// Writes selected ISO dates to hidden inputs #{id}-from and #{id}-to.
+const _range = {};
+function rangeCalendar(id, opts) {
+  opts = opts || {};
+  const now = new Date();
+  _range[id] = { start: '', end: '', year: now.getFullYear(), month: now.getMonth(), onchange: opts.onchange || '' };
+  return `<div id="${id}-cal">${renderRangeCal(id)}</div>
+    <input type="hidden" id="${id}-from"/><input type="hidden" id="${id}-to"/>`;
+}
+function renderRangeCal(id) {
+  const st = _range[id];
+  const { year, month, start, end } = st;
+  const first = new Date(year, month, 1).getDay();
+  const dim = new Date(year, month + 1, 0).getDate();
+  const today = todayISO();
+  const wd = WEEKDAYS.map(w => `<div style="text-align:center;font-size:10px;color:#94a3b8;font-weight:700;padding:2px 0">${w}</div>`).join('');
+  let cells = '';
+  for (let i = 0; i < first; i++) cells += '<div></div>';
+  for (let d = 1; d <= dim; d++) {
+    const iso = toISO(year, month, d);
+    const isEnd = iso === start || iso === end;
+    const inRange = start && end && iso > start && iso < end;
+    let bg = 'transparent', color = '#0f172a';
+    if (isEnd) { bg = '#2563eb'; color = '#fff'; }
+    else if (inRange) { bg = '#dbeafe'; color = '#1d4ed8'; }
+    const border = (iso === today && !isEnd) ? 'border:1px solid #2563eb;' : '';
+    cells += `<div onclick="pickRangeDay('${id}','${iso}')" class="dc-hover" style="cursor:pointer;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:12.5px;border-radius:8px;background:${bg};color:${color};${border}">${d}</div>`;
+  }
+  const summary = start ? (end ? `${fmtThai(start)} — ${fmtThai(end)}` : `${fmtThai(start)} · แตะเลือกวันสิ้นสุด`) : 'แตะเลือกวันเริ่มลา';
+  return `
+    <div style="border:1px solid #e2e8f0;border-radius:12px;padding:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div onclick="rangeMove('${id}',-1)" class="dc-hover" style="cursor:pointer;width:28px;height:28px;border:1px solid #e2e8f0;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#334155">${svg('chevronLeft', 15)}</div>
+        <div style="font-size:13px;font-weight:700">${THAI_MONTHS_FULL[month]} ${year + 543}</div>
+        <div onclick="rangeMove('${id}',1)" class="dc-hover" style="cursor:pointer;width:28px;height:28px;border:1px solid #e2e8f0;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#334155">${svg('chevronRight', 15)}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px">${wd}</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>
+      <div style="margin-top:10px;font-size:12px;font-weight:600;color:${start ? '#2563eb' : '#94a3b8'};text-align:center">${esc(summary)}</div>
+    </div>`;
+}
+window.rangeMove = (id, delta) => {
+  const st = _range[id];
+  let m = st.month + delta, y = st.year;
+  if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; }
+  st.month = m; st.year = y;
+  document.getElementById(id + '-cal').innerHTML = renderRangeCal(id);
+};
+window.pickRangeDay = (id, iso) => {
+  const st = _range[id];
+  if (!st.start || st.end) { st.start = iso; st.end = ''; }
+  else if (parseISO(iso) < parseISO(st.start)) { st.start = iso; st.end = ''; }
+  else { st.end = iso; }
+  document.getElementById(id + '-from').value = st.start;
+  document.getElementById(id + '-to').value = st.end || '';
+  document.getElementById(id + '-cal').innerHTML = renderRangeCal(id);
+  if (st.onchange) new Function(st.onchange)();
+};
+
 // ---- API proxy (POST text/plain to avoid GAS CORS preflight) ----
 const api = new Proxy({}, {
   get: (_t, funcName) => async (...args) => {
@@ -171,6 +232,35 @@ function handleLogin() {
   document.getElementById('login-loading').style.display = 'flex';
   if (typeof liff !== 'undefined' && liff.login) liff.login();
 }
+
+// Backend admin door (username/password)
+window.openAdminLogin = () => {
+  const inner = `
+    <div style="width:100vw;max-width:360px;background:#fff;border-radius:16px;padding:24px">
+      <div style="font-size:16px;font-weight:800;margin-bottom:4px">เข้าสู่ระบบผู้ดูแลระบบ</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:16px">สำหรับดูแลและจัดการระบบหลังบ้าน</div>
+      <form id="admin-login-form" style="display:flex;flex-direction:column;gap:12px">
+        <div><div class="dc-label">ชื่อผู้ใช้</div><input type="text" id="al-user" class="dc-input" autocomplete="username"/></div>
+        <div><div class="dc-label">รหัสผ่าน</div><input type="password" id="al-pass" class="dc-input" autocomplete="current-password"/></div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <div onclick="closeModal()" class="dc-hover" style="cursor:pointer;flex:1;text-align:center;padding:11px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:700;color:#334155">ยกเลิก</div>
+          <button type="submit" class="dc-btn-primary" style="flex:1;padding:11px">เข้าสู่ระบบ</button>
+        </div>
+      </form>
+    </div>`;
+  document.getElementById('modal-root').innerHTML = overlay(inner);
+  document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('al-user').value.trim();
+    const password = document.getElementById('al-pass').value;
+    showLoader(true);
+    try {
+      currentUser = await api.adminLogin(username, password);
+      closeModal();
+      await routeByRole();
+    } catch (err) { swalError(err.message); } finally { showLoader(false); }
+  });
+};
 
 async function authenticateUser(lineUserId) {
   try {
@@ -269,27 +359,31 @@ function showView(id) {
 async function routeByRole() {
   showLoader(true);
   try {
-    leaveTypes = await api.getLeaveTypes();
-    const role = currentUser.role || 'Teacher';
-    if (role === 'HR') { showView('hr'); await loadHr(); }
-    else if (role === 'Director') { showView('director'); await loadDirector(); }
-    else if (role === 'Admin') { showView('admin'); await loadAdmin(); }
-    else { showView('teacher'); await loadTeacher(); }
+    [leaveTypes, _holidays] = await Promise.all([api.getLeaveTypes(), api.getHolidays()]);
+    await reloadPortal();
   } catch (err) { swalError(err.message); }
   finally { showLoader(false); }
+}
+
+// Show + load the portal for the current user's role
+async function reloadPortal() {
+  const role = currentUser.role || 'Teacher';
+  if (role === 'HR') { showView('hr'); await loadHr(); }
+  else if (role === 'Director') { showView('director'); await loadDirector(); }
+  else if (role === 'Admin') { showView('admin'); await loadAdmin(); }
+  else { showView('teacher'); await loadTeacher(); }
 }
 
 // ===========================================================================
 // VIEW 1: TEACHER PORTAL
 // ===========================================================================
-let _teacherData = { quotas: [], history: [], holidays: [] };
+let _teacherData = { quotas: [], history: [] };
 async function loadTeacher() {
-  const [quotas, history, holidays] = await Promise.all([
+  const [quotas, history] = await Promise.all([
     api.getLeaveQuotas(currentUser.id),
-    api.getLeaveHistory(currentUser.id),
-    api.getHolidays()
+    api.getLeaveHistory(currentUser.id)
   ]);
-  _teacherData = { quotas, history, holidays };
+  _teacherData = { quotas, history };
   renderTeacher(quotas, history);
 }
 
@@ -365,7 +459,7 @@ function renderTeacher(quotas, history) {
           <div style="display:flex;flex-direction:column;gap:10px">${recordCards}</div>
         </div>
 
-        <div onclick="openLeaveForm()" class="dc-hover" style="position:fixed;bottom:28px;right:calc(50% - 199px);width:58px;height:58px;border-radius:50%;background:#2563eb;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 28px rgba(37,99,235,.4);cursor:pointer;font-size:28px;z-index:50">+</div>
+        <div onclick="openLeaveForm()" class="dc-hover dc-fab" style="position:fixed;bottom:28px;right:calc(50% - 199px);width:58px;height:58px;border-radius:50%;background:#2563eb;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 28px rgba(37,99,235,.4);cursor:pointer;font-size:28px;z-index:50">+</div>
       </div>
     </div>`;
 }
@@ -385,18 +479,19 @@ function sidebar(role) {
     return `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;font-size:13px;font-weight:600;background:${bg};color:${color}"><span style="color:${color};display:inline-flex">${svg(icon, 17)}</span>${esc(label)}</div>`;
   }).join('');
   return `
-    <div style="width:220px;flex:none;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:26px;padding:0 4px">
+    <div class="dc-sidebar" style="width:220px;flex:none;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0">
+      <div class="dc-brand" style="display:flex;align-items:center;gap:10px;margin-bottom:26px;padding:0 4px">
         <div style="width:36px;height:36px;border-radius:9px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff">รร</div>
         <div>
           <div style="font-size:12.5px;font-weight:700;color:#fff;line-height:1.2">รร.บ้านห้วยตาด</div>
-          <div style="font-size:10px;color:#94a3b8">ระบบจัดการการลา</div>
+          <div style="font-size:10px;color:#94a3b8">${esc(ROLE_META[role] ? ROLE_META[role].label : role)}</div>
         </div>
       </div>
-      <div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#64748b;text-transform:uppercase;padding:0 4px;margin-bottom:8px">${esc(ROLE_META[role] ? ROLE_META[role].label : role)}</div>
-      <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:auto">${items}</div>
-      <div style="border-top:1px solid #1e293b;margin-top:16px;padding-top:14px">
-        <div style="font-size:11px;color:#94a3b8;padding:0 4px 6px">${esc(currentUser.name)}</div>
+      <div class="dc-navlabel" style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#64748b;text-transform:uppercase;padding:0 4px;margin-bottom:8px">${esc(ROLE_META[role] ? ROLE_META[role].label : role)}</div>
+      <div class="dc-nav" style="display:flex;flex-direction:column;gap:2px;margin-bottom:auto">${items}</div>
+      ${currentUser.id === 'ADMIN' ? '' : `<div onclick="openLeaveForm()" class="dc-hover dc-leavebtn" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;padding:10px;border-radius:9px;background:#2563eb;color:#fff;font-size:13px;font-weight:700;cursor:pointer">${svg('plus', 15)} ยื่นใบลาของฉัน</div>`}
+      <div class="dc-sidefoot" style="border-top:1px solid #1e293b;margin-top:16px;padding-top:14px">
+        <div class="dc-sidename" style="font-size:11px;color:#94a3b8;padding:0 4px 6px">${esc(currentUser.prefix || '')}${esc(currentUser.name)}</div>
         <div onclick="logout()" style="cursor:pointer;font-size:12px;font-weight:600;color:#f87171;padding:0 4px;display:flex;align-items:center;gap:6px">${svg('logout', 15)} ออกจากระบบ</div>
       </div>
     </div>`;
@@ -487,9 +582,9 @@ function renderHr() {
   const th = (label, onclick = '', arrow = '') => `<th ${onclick ? `onclick="${onclick}" style="cursor:pointer;` : 'style="'}text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #e2e8f0">${label} ${arrow}</th>`;
 
   document.getElementById('view-hr').innerHTML = `
-    <div style="display:flex;min-height:100vh">
+    <div class="dc-shell" style="display:flex;min-height:100vh">
       ${sidebar('HR')}
-      <div style="flex:1;padding:28px 32px;max-width:1400px">
+      <div class="dc-main" style="flex:1;padding:28px 32px;max-width:1400px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
           <div>
             <div style="font-size:22px;font-weight:800">ภาพรวมการลาประจำวัน</div>
@@ -498,7 +593,7 @@ function renderHr() {
           <div onclick="openOnBehalf()" class="dc-hover" style="cursor:pointer;background:#2563eb;color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;font-weight:700">+ สร้างใบลาแทนครู</div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">${cards}</div>
+        <div class="dc-grid4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">${cards}</div>
 
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;margin-bottom:18px">
           <div style="font-size:13px;font-weight:700;margin-bottom:10px">ใครลาบ้างวันนี้</div>
@@ -604,9 +699,9 @@ function renderDirector() {
     : '<div style="background:#fff;border:1px dashed #cbd5e1;border-radius:14px;padding:40px;text-align:center;color:#94a3b8;font-size:13px">ไม่มีคำขอรออนุมัติในขณะนี้</div>';
 
   document.getElementById('view-director').innerHTML = `
-    <div style="display:flex;min-height:100vh">
+    <div class="dc-shell" style="display:flex;min-height:100vh">
       ${sidebar('Director')}
-      <div style="flex:1;padding:28px 32px;display:grid;grid-template-columns:1.15fr .85fr;gap:22px;align-items:start;max-width:1500px">
+      <div class="dc-main dc-grid-dir" style="flex:1;padding:28px 32px;display:grid;grid-template-columns:1.15fr .85fr;gap:22px;align-items:start;max-width:1500px">
         <div>
           <div style="font-size:22px;font-weight:800;margin-bottom:2px">คำขอรออนุมัติ</div>
           <div style="font-size:13px;color:#64748b;margin-bottom:18px">${s.pending.length} รายการรอการพิจารณา</div>
@@ -766,11 +861,11 @@ function renderAdmin() {
     </div>`).join('');
 
   document.getElementById('view-admin').innerHTML = `
-    <div style="display:flex;min-height:100vh">
+    <div class="dc-shell" style="display:flex;min-height:100vh">
       ${sidebar('Admin')}
-      <div style="flex:1;padding:28px 32px;max-width:1500px">
+      <div class="dc-main" style="flex:1;padding:28px 32px;max-width:1500px">
         <div style="font-size:22px;font-weight:800;margin-bottom:20px">แผงควบคุมผู้ดูแลระบบ</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px">${metrics}</div>
+        <div class="dc-grid4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px">${metrics}</div>
 
         ${pendingBlock}
 
@@ -793,7 +888,7 @@ function renderAdmin() {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+        <div class="dc-grid2" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
           <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px">
             <div style="font-size:14px;font-weight:700;margin-bottom:12px">ตั้งค่าประเภทการลาและโควตา</div>
             ${typeConfig}
@@ -881,19 +976,17 @@ function overlay(inner, align = 'center') {
 window.openLeaveForm = () => {
   // Types filtered by gender restriction (คลอด=หญิง, ช่วยภริยาคลอด=ชาย)
   const avail = availableTypesFor(currentUser.prefix);
-  const chips = avail.map((lt, i) => `<div onclick="pickLeaveType('${esc(lt.id)}')" data-lt="${esc(lt.id)}" class="lt-chip" style="cursor:pointer;padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:700;background:${i === 0 ? lt.color_code : '#f8fafc'};color:${i === 0 ? '#fff' : lt.color_code};border:1px solid ${lt.color_code}">${esc(lt.name)}</div>`).join('');
+  const typeOpts = avail.map(lt => `<option value="${esc(lt.id)}">${esc(lt.name)}</option>`).join('');
   const inner = `
     <div style="width:100vw;max-width:430px;background:#fff;border-radius:20px 20px 0 0;padding:22px 20px 28px;max-height:88vh;overflow-y:auto;animation:fadeUp .25s ease">
       <div style="width:36px;height:4px;background:#e2e8f0;border-radius:99px;margin:0 auto 16px"></div>
       <div style="font-size:17px;font-weight:800;margin-bottom:16px">ยื่นใบลา</div>
       <div style="margin-bottom:14px">
         <div class="dc-label">ประเภทการลา</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap" id="lt-chips">${chips}</div>
-        <input type="hidden" id="lf-type" value="${esc(avail[0] ? avail[0].id : '')}"/>
+        <select id="lf-type" class="dc-input" onchange="calcLeaveDays()">${typeOpts}</select>
       </div>
-      <div style="margin-bottom:12px"><div class="dc-label">วันที่เริ่มลา</div>${thaiDate('lf-from', '', 'calcLeaveDays()')}</div>
-      <div style="margin-bottom:14px"><div class="dc-label">วันที่สิ้นสุด</div>${thaiDate('lf-to', '', 'calcLeaveDays()')}</div>
-      <div id="lf-days" style="font-size:12px;color:#2563eb;font-weight:600;margin:-6px 0 12px"></div>
+      <div style="margin-bottom:8px"><div class="dc-label">เลือกช่วงวันลา</div>${rangeCalendar('lf', { onchange: 'calcLeaveDays()' })}</div>
+      <div id="lf-days" style="font-size:12px;color:#2563eb;font-weight:600;margin:0 0 12px"></div>
       <div style="margin-bottom:14px">
         <div class="dc-label">เหตุผลการลา</div>
         <textarea id="lf-reason" placeholder="ระบุเหตุผลการลา" class="dc-input" style="min-height:70px;resize:vertical"></textarea>
@@ -906,20 +999,10 @@ window.openLeaveForm = () => {
     </div>`;
   document.getElementById('modal-root').innerHTML = overlay(inner, 'end');
 };
-window.pickLeaveType = (id) => {
-  document.getElementById('lf-type').value = id;
-  document.querySelectorAll('.lt-chip').forEach(el => {
-    const lt = leaveTypes.find(x => x.id == el.dataset.lt);
-    const on = el.dataset.lt === id;
-    el.style.background = on ? lt.color_code : '#f8fafc';
-    el.style.color = on ? '#fff' : lt.color_code;
-  });
-  calcLeaveDays();
-};
 // Count leave days on the client, matching the type's count_mode + holidays
 function countDaysClient(from, to, mode) {
   if (mode === 'continuous') return daysBetween(from, to);
-  const hol = (_teacherData.holidays || []).map(h => normDate(h.date));
+  const hol = (_holidays || []).map(h => normDate(h.date));
   let c = 0; const cur = parseISO(from), end = parseISO(to);
   while (cur <= end) {
     const d = cur.getDay();
@@ -972,7 +1055,7 @@ window.submitLeaveForm = async () => {
     });
     closeModal();
     toast('ส่งใบลาสำเร็จ รอการอนุมัติ');
-    await loadTeacher();
+    await reloadPortal();
   } catch (err) { swalError(err.message); } finally { showLoader(false); }
 };
 window.cancelRequest = async (reqId) => {
@@ -991,8 +1074,7 @@ window.openOnBehalf = () => {
       <div style="font-size:16px;font-weight:800;margin-bottom:16px">สร้างใบลาแทนครู</div>
       <div style="margin-bottom:12px"><div class="dc-label">เลือกบุคลากร</div><select id="ob-user" class="dc-input" onchange="obFilterTypes()">${teacherOpts}</select></div>
       <div style="margin-bottom:12px"><div class="dc-label">ประเภทการลา</div><select id="ob-type" class="dc-input"></select></div>
-      <div style="margin-bottom:12px"><div class="dc-label">วันที่เริ่มลา</div>${thaiDate('ob-from')}</div>
-      <div style="margin-bottom:12px"><div class="dc-label">วันที่สิ้นสุด</div>${thaiDate('ob-to')}</div>
+      <div style="margin-bottom:12px"><div class="dc-label">เลือกช่วงวันลา</div>${rangeCalendar('ob')}</div>
       <div style="margin-bottom:18px"><div class="dc-label">เหตุผล</div><textarea id="ob-reason" class="dc-input" style="min-height:60px;resize:vertical"></textarea></div>
       <div style="display:flex;gap:8px">
         <div onclick="closeModal()" class="dc-hover" style="cursor:pointer;flex:1;text-align:center;padding:11px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:700;color:#334155">ยกเลิก</div>
