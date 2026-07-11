@@ -559,16 +559,28 @@ function renderTeacher(quotas, history) {
 // ===========================================================================
 // Sidebar (HR / Director / Admin)
 // ===========================================================================
-const NAV_BY_ROLE = {
-  HR: [['chart', 'ภาพรวมประจำวัน'], ['list', 'รายงานการลาทั้งหมด'], ['users', 'บุคลากร']],
-  Director: [['checkCircle', 'คำขอรออนุมัติ'], ['calendar', 'ปฏิทินโรงเรียน']],
-  Admin: [['user', 'จัดการผู้ใช้งาน'], ['folder', 'ประเภทการลา/โควตา'], ['calendar', 'วันหยุดราชการ'], ['alert', 'พื้นที่อันตราย']],
+let _activeTab = { HR: 0, Director: 0, Admin: 0 };
+window.setTab = (role, idx) => {
+  _activeTab[role] = idx;
+  if (role === 'HR') renderHr();
+  else if (role === 'Director') renderDirector();
+  else if (role === 'Admin') renderAdmin();
 };
-function sidebar(role) {
+
+const NAV_BY_ROLE = {
+  HR: [['chart', 'ภาพรวม'], ['checkCircle', 'รออนุมัติ'], ['list', 'รายงานการลา'], ['users', 'บุคลากร']],
+  Director: [['checkCircle', 'รออนุมัติ'], ['calendar', 'ปฏิทินโรงเรียน']],
+  Admin: [['user', 'ผู้ใช้งาน'], ['folder', 'ประเภทการลา'], ['calendar', 'วันหยุด'], ['user', 'ผู้ลงนาม'], ['alert', 'อันตราย']],
+};
+
+function sidebar(role, badges = {}) {
+  const active = _activeTab[role] || 0;
   const items = (NAV_BY_ROLE[role] || []).map(([icon, label], i) => {
-    const bg = i === 0 ? 'rgba(37,99,235,0.18)' : 'transparent';
-    const color = i === 0 ? '#93c5fd' : '#cbd5e1';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;font-size:13px;font-weight:600;background:${bg};color:${color}"><span style="color:${color};display:inline-flex">${svg(icon, 17)}</span>${esc(label)}</div>`;
+    const isActive = i === active;
+    const bg    = isActive ? 'rgba(37,99,235,0.22)' : 'transparent';
+    const color = isActive ? '#93c5fd' : '#94a3b8';
+    const bdg   = badges[i] ? `<span style="margin-left:auto;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px">${badges[i]}</span>` : '';
+    return `<div onclick="setTab('${role}',${i})" class="dc-hover" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;font-size:13px;font-weight:600;background:${bg};color:${color};border-left:${isActive ? '3px solid #3b82f6' : '3px solid transparent'}"><span style="color:${color};display:inline-flex">${svg(icon, 17)}</span>${esc(label)}${bdg}</div>`;
   }).join('');
   return `
     <div class="dc-sidebar" style="width:220px;flex:none;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0">
@@ -608,44 +620,57 @@ async function loadHr() {
 function renderHr() {
   const s = _hrData;
   const today = todayISO();
-  const active = s.records.filter(r => isActive(r.status));
-  const onLeaveToday = active.filter(r => dateInRange(today, r.start_date, r.end_date));
+  const activeRecs = s.records.filter(r => isActive(r.status));
+  const onLeaveToday = activeRecs.filter(r => dateInRange(today, r.start_date, r.end_date));
   const pendingAll = s.records.filter(r => isPending(r.status));
   const approvedThisMonth = s.records.filter(r => r.status === 'Approved' && normDate(r.start_date).startsWith(today.substring(0, 7)));
+  const tab = _activeTab.HR || 0;
 
-  const cards = [
-    { label: 'ลาวันนี้', value: onLeaveToday.length, color: '#2563eb' },
-    { label: 'รออนุมัติทั้งหมด', value: pendingAll.length, color: '#b45309' },
-    { label: 'อนุมัติแล้ว (เดือนนี้)', value: approvedThisMonth.length, color: '#15803d' },
-    { label: 'บุคลากรทั้งหมด', value: s.teachers.length, color: '#334155' },
-  ].map(c => `
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px">
-      <div style="font-size:12px;color:#64748b;margin-bottom:6px">${c.label}</div>
-      <div style="font-size:26px;font-weight:800;color:${c.color}">${c.value}</div>
-    </div>`).join('');
-
-  const pendingBlock = s.pending.length ? `
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;margin-bottom:18px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:10px">คำขอรออนุมัติ (ระดับฝ่ายบุคคล) · ${s.pending.length} รายการ</div>
-      <div style="display:flex;flex-direction:column;gap:12px">${s.pending.map(approvalCard).join('')}</div>
-    </div>` : '';
-
+  // --- Tab 0: ภาพรวม ---
   const onLeaveChips = onLeaveToday.length ? onLeaveToday.map(r => `
     <div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:6px 14px 6px 6px">
-      <div style="width:26px;height:26px;border-radius:50%;background:${avatarColor(r.teacher_id)};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff">${initials(r.teacher_name)}</div>
+      <div style="width:28px;height:28px;border-radius:50%;background:${avatarColor(r.teacher_id)};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff">${initials(r.teacher_name)}</div>
       <div style="font-size:12px;font-weight:600">${esc(r.teacher_name)}</div>
-      <div style="font-size:11px;color:#64748b">· ${esc(r.type_name)}</div>
-    </div>`).join('') : '<div style="font-size:12px;color:#94a3b8">ไม่มีบุคลากรลาในวันนี้</div>';
+      <span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${r.color_code}22;color:${r.color_code};font-weight:600">${esc(r.type_name)}</span>
+    </div>`).join('')
+    : '<div style="text-align:center;padding:24px;color:#94a3b8;font-size:13px">ไม่มีบุคลากรลาในวันนี้</div>';
 
-  // Filters
+  const tabContent0 = `
+    <div class="dc-grid4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">
+      ${[
+        { label: 'ลาวันนี้', value: onLeaveToday.length, sub: 'คน', color: '#2563eb', bg: '#eff6ff' },
+        { label: 'รออนุมัติ', value: pendingAll.length, sub: 'รายการ', color: '#b45309', bg: '#fffbeb' },
+        { label: 'อนุมัติแล้ว (เดือนนี้)', value: approvedThisMonth.length, sub: 'รายการ', color: '#15803d', bg: '#f0fdf4' },
+        { label: 'บุคลากรทั้งหมด', value: s.teachers.length, sub: 'คน', color: '#334155', bg: '#f8fafc' },
+      ].map(c => `
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px">
+          <div style="width:36px;height:36px;border-radius:10px;background:${c.bg};display:flex;align-items:center;justify-content:center;margin-bottom:12px">
+            <div style="width:10px;height:10px;border-radius:50%;background:${c.color}"></div>
+          </div>
+          <div style="font-size:28px;font-weight:800;color:${c.color};line-height:1">${c.value}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:2px">${c.sub}</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;font-weight:600">${c.label}</div>
+        </div>`).join('')}
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px">
+      <div style="font-size:14px;font-weight:700;margin-bottom:14px">ใครลาบ้างวันนี้ (${onLeaveToday.length} คน)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">${onLeaveChips}</div>
+    </div>`;
+
+  // --- Tab 1: รออนุมัติ ---
+  const tabContent1 = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:18px;font-weight:800">คำขอรออนุมัติ</div>
+      <div style="font-size:13px;color:#64748b">${s.pending.length} รายการรอการพิจารณา</div>
+    </div>
+    ${s.pending.length
+      ? `<div style="display:flex;flex-direction:column;gap:14px">${s.pending.map(approvalCard).join('')}</div>`
+      : `<div style="background:#fff;border:1px dashed #cbd5e1;border-radius:14px;padding:48px;text-align:center;color:#94a3b8;font-size:13px">ไม่มีคำขอรออนุมัติในขณะนี้</div>`}`;
+
+  // --- Tab 2: รายงาน ---
   const depts = [...new Set(s.teachers.map(t => t.department).filter(Boolean))];
   const deptOpts = ['all', ...depts].map(d => `<option value="${esc(d)}" ${hrFilters.dept === d ? 'selected' : ''}>${d === 'all' ? 'ทุกกลุ่มสาระ/ฝ่าย' : esc(d)}</option>`).join('');
-  const typeOpts = ['all', ...leaveTypes.map(t => t.id)].map(id => {
-    const label = id === 'all' ? 'ทุกประเภทการลา' : typeName(id);
-    return `<option value="${esc(id)}" ${hrFilters.type === id ? 'selected' : ''}>${esc(label)}</option>`;
-  }).join('');
-
-  // Filter + sort
+  const typeOpts = ['all', ...leaveTypes.map(t => t.id)].map(id => `<option value="${esc(id)}" ${hrFilters.type === id ? 'selected' : ''}>${id === 'all' ? 'ทุกประเภท' : esc(typeName(id))}</option>`).join('');
   let rows = s.records.slice();
   if (hrFilters.dateFrom) rows = rows.filter(r => normDate(r.end_date) >= hrFilters.dateFrom);
   if (hrFilters.dateTo) rows = rows.filter(r => normDate(r.start_date) <= hrFilters.dateTo);
@@ -657,7 +682,9 @@ function renderHr() {
     const vb = hrSort.field === 'teacher_name' ? b.teacher_name : normDate(b.start_date);
     return va > vb ? dir : va < vb ? -dir : 0;
   });
-
+  const arrowName = hrSort.field === 'teacher_name' ? svg(hrSort.dir === 'asc' ? 'chevronUp' : 'chevronDown', 12) : '';
+  const arrowDate = hrSort.field === 'start_date' ? svg(hrSort.dir === 'asc' ? 'chevronUp' : 'chevronDown', 12) : '';
+  const th = (label, onclick = '', arrow = '') => `<th ${onclick ? `onclick="${onclick}" style="cursor:pointer;` : 'style="'}text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #e2e8f0">${label} ${arrow}</th>`;
   const tableRows = rows.map(r => {
     const sm = statusMeta(r.status);
     const from = normDate(r.start_date), to = normDate(r.end_date);
@@ -671,58 +698,65 @@ function renderHr() {
       <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9"><span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:${sm.bg};color:${sm.color}">${sm.label}</span>${r.status === 'Approved' ? `<span onclick="printLeaveFormHr('${esc(r.id)}')" title="ออกใบลา" class="dc-hover" style="cursor:pointer;color:#2563eb;margin-left:8px;display:inline-flex;vertical-align:middle">${svg('download', 15)}</span>` : ''}</td>
     </tr>`;
   }).join('');
-  const arrowName = hrSort.field === 'teacher_name' ? svg(hrSort.dir === 'asc' ? 'chevronUp' : 'chevronDown', 12) : '';
-  const arrowDate = hrSort.field === 'start_date' ? svg(hrSort.dir === 'asc' ? 'chevronUp' : 'chevronDown', 12) : '';
-  const th = (label, onclick = '', arrow = '') => `<th ${onclick ? `onclick="${onclick}" style="cursor:pointer;` : 'style="'}text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #e2e8f0">${label} ${arrow}</th>`;
+  const tabContent2 = `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div style="font-size:14px;font-weight:700">รายงานการลาทั้งหมด (${rows.length} รายการ)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          ${thaiDate('hf-from', hrFilters.dateFrom, "setHrFilter('dateFrom', document.getElementById('hf-from').value)")}
+          <span style="font-size:12px;color:#94a3b8">ถึง</span>
+          ${thaiDate('hf-to', hrFilters.dateTo, "setHrFilter('dateTo', document.getElementById('hf-to').value)")}
+          <select onchange="setHrFilter('dept',this.value)" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px">${deptOpts}</select>
+          <select onchange="setHrFilter('type',this.value)" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px">${typeOpts}</select>
+          <div onclick="exportCsv()" class="dc-hover" style="cursor:pointer;border:1px solid #e2e8f0;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;color:#334155;display:flex;align-items:center;gap:6px">${svg('download', 14)} Export CSV</div>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr>
+            ${th('ชื่อ-สกุล', "sortHr('teacher_name')", arrowName)}
+            ${th('กลุ่มสาระ/ฝ่าย')}${th('ประเภทการลา')}
+            ${th('วันที่', "sortHr('start_date')", arrowDate)}
+            ${th('จำนวนวัน')}${th('สถานะ')}
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+        ${rows.length === 0 ? '<div style="padding:30px;text-align:center;font-size:13px;color:#94a3b8">ไม่พบรายการ</div>' : ''}
+      </div>
+    </div>`;
+
+  // --- Tab 3: บุคลากร ---
+  const teacherRows = s.teachers.map(t => {
+    const rm = ROLE_META[t.role] || { label: t.role, bg: '#f1f5f9', color: '#64748b' };
+    return `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#fff;border:1px solid #e2e8f0;border-radius:12px">
+        <div style="width:40px;height:40px;border-radius:12px;background:${avatarColor(t.id)};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex:none">${initials(t.name)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700">${esc(t.prefix || '')}${esc(t.name)} ${esc(t.surname || '')}</div>
+          <div style="font-size:11.5px;color:#64748b">${esc(t.position || '-')} · ${esc(t.department || '-')}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:${rm.bg};color:${rm.color};white-space:nowrap">${rm.label}</span>
+      </div>`;
+  }).join('');
+  const tabContent3 = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div><div style="font-size:18px;font-weight:800">บุคลากร</div><div style="font-size:13px;color:#64748b">${s.teachers.length} คน</div></div>
+      <div onclick="openOnBehalf()" class="dc-hover" style="cursor:pointer;background:#2563eb;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700">+ สร้างใบลาแทน</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">${teacherRows}</div>`;
+
+  const tabContents = [tabContent0, tabContent1, tabContent2, tabContent3];
+  const pageTitle = ['ภาพรวมการลาประจำวัน', 'คำขอรออนุมัติ', 'รายงานการลา', 'บุคลากร'][tab];
 
   document.getElementById('view-hr').innerHTML = `
     <div class="dc-shell" style="display:flex;min-height:100vh">
-      ${sidebar('HR')}
+      ${sidebar('HR', { 1: s.pending.length || '' })}
       <div class="dc-main" style="flex:1;padding:28px 32px;max-width:1400px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
-          <div>
-            <div style="font-size:22px;font-weight:800">ภาพรวมการลาประจำวัน</div>
-            <div style="font-size:13px;color:#64748b">วันนี้ ${fmtThai(today)}</div>
-          </div>
-          <div onclick="openOnBehalf()" class="dc-hover" style="cursor:pointer;background:#2563eb;color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;font-weight:700">+ สร้างใบลาแทนครู</div>
+        <div style="margin-bottom:22px">
+          <div style="font-size:22px;font-weight:800">${pageTitle}</div>
+          <div style="font-size:13px;color:#64748b">วันนี้ ${fmtThai(today)}</div>
         </div>
-
-        <div class="dc-grid4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">${cards}</div>
-
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;margin-bottom:18px">
-          <div style="font-size:13px;font-weight:700;margin-bottom:10px">ใครลาบ้างวันนี้</div>
-          <div style="display:flex;flex-wrap:wrap;gap:10px">${onLeaveChips}</div>
-        </div>
-
-        ${pendingBlock}
-
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-            <div style="font-size:14px;font-weight:700">รายงานการลาทั้งหมด</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-              ${thaiDate('hf-from', hrFilters.dateFrom, "setHrFilter('dateFrom', document.getElementById('hf-from').value)")}
-              <span style="font-size:12px;color:#94a3b8">ถึง</span>
-              ${thaiDate('hf-to', hrFilters.dateTo, "setHrFilter('dateTo', document.getElementById('hf-to').value)")}
-              <select onchange="setHrFilter('dept',this.value)" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px">${deptOpts}</select>
-              <select onchange="setHrFilter('type',this.value)" style="padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px">${typeOpts}</select>
-              <div onclick="exportCsv()" class="dc-hover" style="cursor:pointer;border:1px solid #e2e8f0;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;color:#334155;display:flex;align-items:center;gap:6px">${svg('download', 14)} Export CSV</div>
-            </div>
-          </div>
-          <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
-              <thead><tr>
-                ${th('ชื่อ-สกุล', 'sortHr(\'teacher_name\')', arrowName)}
-                ${th('กลุ่มสาระ/ฝ่าย')}
-                ${th('ประเภทการลา')}
-                ${th('วันที่', 'sortHr(\'start_date\')', arrowDate)}
-                ${th('จำนวนวัน')}
-                ${th('สถานะ')}
-              </tr></thead>
-              <tbody>${tableRows}</tbody>
-            </table>
-            ${rows.length === 0 ? '<div style="padding:30px;text-align:center;font-size:13px;color:#94a3b8">ไม่พบรายการที่ตรงกับตัวกรอง</div>' : ''}
-          </div>
-        </div>
+        ${tabContents[tab] || ''}
       </div>
     </div>`;
 }
@@ -789,21 +823,32 @@ function approvalCard(r) {
 
 function renderDirector() {
   const s = _dirData;
-  const pendingCards = s.pending.length ? s.pending.map(approvalCard).join('')
-    : '<div style="background:#fff;border:1px dashed #cbd5e1;border-radius:14px;padding:40px;text-align:center;color:#94a3b8;font-size:13px">ไม่มีคำขอรออนุมัติในขณะนี้</div>';
+  const tab = _activeTab.Director || 0;
+
+  const tabContent0 = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:18px;font-weight:800">คำขอรออนุมัติ</div>
+      <div style="font-size:13px;color:#64748b">${s.pending.length} รายการรอการพิจารณา</div>
+    </div>
+    ${s.pending.length
+      ? `<div style="display:flex;flex-direction:column;gap:14px">${s.pending.map(approvalCard).join('')}</div>`
+      : `<div style="background:#fff;border:1px dashed #cbd5e1;border-radius:14px;padding:48px;text-align:center;color:#94a3b8;font-size:13px">ไม่มีคำขอรออนุมัติในขณะนี้</div>`}`;
+
+  const tabContent1 = `
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px">
+      ${renderCalendar(s.records, s.holidays)}
+    </div>`;
+
+  const pageTitles = ['คำขอรออนุมัติ', 'ปฏิทินโรงเรียน'];
 
   document.getElementById('view-director').innerHTML = `
     <div class="dc-shell" style="display:flex;min-height:100vh">
-      ${sidebar('Director')}
-      <div class="dc-main dc-grid-dir" style="flex:1;padding:28px 32px;display:grid;grid-template-columns:1.15fr .85fr;gap:22px;align-items:start;max-width:1500px">
-        <div>
-          <div style="font-size:22px;font-weight:800;margin-bottom:2px">คำขอรออนุมัติ</div>
-          <div style="font-size:13px;color:#64748b;margin-bottom:18px">${s.pending.length} รายการรอการพิจารณา</div>
-          <div style="display:flex;flex-direction:column;gap:12px">${pendingCards}</div>
+      ${sidebar('Director', { 0: s.pending.length || '' })}
+      <div class="dc-main" style="flex:1;padding:28px 32px;max-width:900px">
+        <div style="margin-bottom:22px">
+          <div style="font-size:22px;font-weight:800">${pageTitles[tab]}</div>
         </div>
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;position:sticky;top:20px">
-          ${renderCalendar(s.records, s.holidays)}
-        </div>
+        ${[tabContent0, tabContent1][tab] || ''}
       </div>
     </div>`;
 }
@@ -954,68 +999,83 @@ function renderAdmin() {
       <span onclick="deleteHolidayRow('${esc(h.id)}')" style="cursor:pointer;color:#cbd5e1;display:inline-flex">${svg('x', 14)}</span>
     </div>`).join('');
 
+  const tab = _activeTab.Admin || 0;
+
+  // Tab 0: ผู้ใช้งาน
+  const tab0 = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div><div style="font-size:18px;font-weight:800">จัดการผู้ใช้งาน</div><div style="font-size:13px;color:#64748b">${s.teachers.length} บัญชี</div></div>
+      <div onclick="openUserModal()" class="dc-hover" style="cursor:pointer;background:#2563eb;color:#fff;padding:9px 18px;border-radius:9px;font-size:13px;font-weight:700">+ เพิ่มผู้ใช้งาน</div>
+    </div>
+    ${pendingBlock}
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr>
+          <th style="text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0">ชื่อ-สกุล</th>
+          <th style="text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0">ตำแหน่ง</th>
+          <th style="text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0">กลุ่มสาระ/ฝ่าย</th>
+          <th style="text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0">สิทธิ์</th>
+          <th style="text-align:right;padding:9px 8px;color:#64748b;font-size:11px;border-bottom:2px solid #e2e8f0">จัดการ</th>
+        </tr></thead>
+        <tbody>${userRows}</tbody>
+      </table>
+    </div>`;
+
+  // Tab 1: ประเภทการลา
+  const tab1 = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px">ประเภทการลาและโควตา</div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px">
+      <div style="font-size:13px;color:#64748b;margin-bottom:14px">แก้ไขจำนวนวันลาสูงสุดต่อปีของแต่ละประเภท</div>
+      ${typeConfig}
+    </div>`;
+
+  // Tab 2: วันหยุด
+  const tab2 = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:18px;font-weight:800">วันหยุดราชการ / วันหยุดโรงเรียน</div>
+      <div onclick="addHoliday()" class="dc-hover" style="cursor:pointer;background:#2563eb;color:#fff;padding:9px 18px;border-radius:9px;font-size:13px;font-weight:700">+ เพิ่มวันหยุด</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px">
+      <div style="display:flex;flex-direction:column;gap:6px">${holidayRows || '<div style="color:#94a3b8;font-size:13px;text-align:center;padding:20px">ยังไม่มีวันหยุด</div>'}</div>
+    </div>`;
+
+  // Tab 3: ผู้ลงนาม
+  const tab3 = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px">ข้อมูลผู้ลงนามในใบลา</div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:24px;max-width:480px">
+      <div style="font-size:13px;color:#64748b;margin-bottom:18px">ชื่อที่กำหนดจะปรากฏในใบลาเมื่อพิมพ์</div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <div class="dc-label">ชื่อ-นามสกุล ผู้อำนวยการ (ลงนามอนุมัติ)</div>
+          <input id="cfg-director" class="dc-input" value="${esc(DIRECTOR_NAME)}" placeholder="เช่น นายพานิก สิทธิ">
+        </div>
+        <div>
+          <div class="dc-label">ชื่อ-นามสกุล ผู้ตรวจสอบ/ผู้จัดทำ (ฝ่ายบุคคล)</div>
+          <input id="cfg-preparer" class="dc-input" value="${esc(PREPARER_NAME)}" placeholder="เช่น นางหทัยชนก ปรุงพาณิช">
+        </div>
+        <div onclick="saveDocConfig()" class="dc-hover" style="cursor:pointer;display:inline-block;background:#2563eb;color:#fff;padding:10px 22px;border-radius:9px;font-size:13px;font-weight:700">บันทึก</div>
+      </div>
+    </div>`;
+
+  // Tab 4: อันตราย
+  const tab4 = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px;color:#b91c1c">พื้นที่อันตราย</div>
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:24px;max-width:500px">
+      <div style="font-size:14px;font-weight:700;color:#b91c1c;margin-bottom:8px">ยกยอดวันลาข้ามปีงบประมาณ</div>
+      <div style="font-size:13px;color:#7f1d1d;line-height:1.7;margin-bottom:16px">รีเซ็ตวันลาที่ใช้ไปของบุคลากรทุกคนกลับเป็นศูนย์ เหมาะใช้ในต้นปีงบประมาณใหม่ (1 ตุลาคม) ไม่สามารถย้อนกลับได้</div>
+      <div onclick="confirmYearlyReset()" class="dc-hover" style="cursor:pointer;display:inline-block;background:#dc2626;color:#fff;padding:10px 22px;border-radius:9px;font-size:13px;font-weight:700">ยกยอดวันลาข้ามปี (Reset)</div>
+    </div>`;
+
+  const pageTitles = ['จัดการผู้ใช้งาน', 'ประเภทการลา/โควตา', 'วันหยุดราชการ', 'ผู้ลงนามในใบลา', 'พื้นที่อันตราย'];
+
   document.getElementById('view-admin').innerHTML = `
     <div class="dc-shell" style="display:flex;min-height:100vh">
-      ${sidebar('Admin')}
-      <div class="dc-main" style="flex:1;padding:28px 32px;max-width:1500px">
-        <div style="font-size:22px;font-weight:800;margin-bottom:20px">แผงควบคุมผู้ดูแลระบบ</div>
-        <div class="dc-grid4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px">${metrics}</div>
-
-        ${pendingBlock}
-
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;margin-bottom:20px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <div style="font-size:14px;font-weight:700">จัดการผู้ใช้งานและสิทธิ์การเข้าถึง</div>
-            <div onclick="openUserModal()" class="dc-hover" style="cursor:pointer;background:#2563eb;color:#fff;padding:8px 16px;border-radius:8px;font-size:12.5px;font-weight:700">+ เพิ่มผู้ใช้งาน</div>
-          </div>
-          <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
-              <thead><tr>
-                <th style="text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0">ชื่อ-สกุล</th>
-                <th style="text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0">ตำแหน่ง</th>
-                <th style="text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0">กลุ่มสาระ/ฝ่าย</th>
-                <th style="text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0">สิทธิ์การใช้งาน</th>
-                <th style="text-align:right;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0">จัดการ</th>
-              </tr></thead>
-              <tbody>${userRows}</tbody>
-            </table>
-          </div>
+      ${sidebar('Admin', { 0: s.pendingUsers.length || '' })}
+      <div class="dc-main" style="flex:1;padding:28px 32px;max-width:1200px">
+        <div style="margin-bottom:22px">
+          <div style="font-size:22px;font-weight:800">${pageTitles[tab]}</div>
         </div>
-
-        <div class="dc-grid2" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
-          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px">
-            <div style="font-size:14px;font-weight:700;margin-bottom:12px">ตั้งค่าประเภทการลาและโควตา</div>
-            ${typeConfig}
-          </div>
-          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <div style="font-size:14px;font-weight:700">จัดการวันหยุดราชการ/วันหยุดโรงเรียน</div>
-              <div onclick="addHoliday()" class="dc-hover" style="cursor:pointer;font-size:12px;font-weight:700;color:#2563eb;padding:5px 10px;border-radius:7px">+ เพิ่มวันหยุด</div>
-            </div>
-            <div style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">${holidayRows}</div>
-          </div>
-        </div>
-
-        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px">
-          <div style="font-size:14px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:6px">${svg('user', 16)} ข้อมูลผู้ลงนามในใบลา</div>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <div>
-              <div class="dc-label">ชื่อ-นามสกุล ผู้อำนวยการ (ลงนามอนุมัติ)</div>
-              <input id="cfg-director" class="dc-input" value="${esc(DIRECTOR_NAME)}" placeholder="เช่น นายพานิก สิทธิ">
-            </div>
-            <div>
-              <div class="dc-label">ชื่อ-นามสกุล ผู้ตรวจสอบ/ผู้จัดทำ (ฝ่ายบุคคล)</div>
-              <input id="cfg-preparer" class="dc-input" value="${esc(PREPARER_NAME)}" placeholder="เช่น นางหทัยชนก ปรุงพาณิช">
-            </div>
-            <div onclick="saveDocConfig()" class="dc-hover" style="cursor:pointer;display:inline-block;background:#2563eb;color:#fff;padding:9px 18px;border-radius:9px;font-size:13px;font-weight:700;align-self:flex-start">บันทึก</div>
-          </div>
-        </div>
-
-        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:18px">
-          <div style="font-size:14px;font-weight:800;color:#b91c1c;margin-bottom:4px;display:flex;align-items:center;gap:6px">${svg('alert', 16)} พื้นที่อันตราย</div>
-          <div style="font-size:12.5px;color:#7f1d1d;margin-bottom:12px">การยกยอดวันลาข้ามปีจะรีเซ็ตวันลาที่ใช้ไปของบุคลากรทุกคนกลับเป็นศูนย์ และไม่สามารถย้อนกลับได้</div>
-          <div onclick="confirmYearlyReset()" class="dc-hover" style="cursor:pointer;display:inline-block;background:#dc2626;color:#fff;padding:9px 18px;border-radius:9px;font-size:13px;font-weight:700">ยกยอดวันลาข้ามปี (Reset ประจำปี)</div>
-        </div>
+        ${[tab0, tab1, tab2, tab3, tab4][tab] || ''}
       </div>
     </div>`;
 }
