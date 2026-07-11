@@ -4,7 +4,7 @@
 // ===========================================================================
 
 const LIFF_ID = "2010662195-iJjI0NIA";
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzzeorXhT7Q7JREKP7UYQTNtZZXkoBjI3FGEsV4zn9o4tPy5rT5f6hevPPTTs10KMY8HA/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzLPEUR7RxO7JHHCa3Fq9qT_D2AXyawX07oaoSzN92HXJyJt1rkKgeOY3f5lbabsfpU8Q/exec";
 // ใส่ URL ของ logo รร. (Google Drive: เปลี่ยน /file/d/ID/view เป็น /uc?id=ID) หรือ URL รูปภาพอื่น
 // ถ้าว่าง = แสดงข้อความ "รร" เหมือนเดิม
 const SCHOOL_LOGO_URL = 'https://drive.google.com/uc?id=1VrmDOJdLPCy0c5ftePNKmLyCcqdiCmmb';
