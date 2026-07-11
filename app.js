@@ -401,15 +401,21 @@ function renderTeacher(quotas, history) {
   const ini = initials(u.name);
   const aColor = avatarColor(u.id);
 
-  // WARNING thresholds (ครั้ง/รอบการประเมิน) — แก้ตัวเลขตามเกณฑ์จริงของโรงเรียน
-  const WARN_TIMES = 8;   // สีส้ม: เริ่มระวัง
-  const DANGER_TIMES = 12; // สีแดง: ใกล้กระทบการประเมิน
+  // เกณฑ์ ก.ค.ศ. สำหรับข้าราชการครูในสถานศึกษา
+  const WARN_TIMES  = 6;  // ≥6 ครั้ง = "ลาบ่อยครั้ง" → กระทบสิทธิ์เลื่อนเงินเดือน
+  const WARN_DAYS   = 15; // ≥15 วันทำการ (ลาป่วย+ลากิจรวม) → ไม่ควรได้ดีเด่น
+  const DANGER_DAYS = 23; // ≥23 วันทำการ → ไม่ได้เลื่อนเงินเดือน
 
   // นับจำนวนครั้งที่อนุมัติแล้วต่อประเภทการลา
   const countByType = {};
   (history || []).filter(r => r.status === 'Approved').forEach(r => {
     countByType[r.leave_type_id] = (countByType[r.leave_type_id] || 0) + 1;
   });
+
+  // วันลารวม ลาป่วย + ลากิจ (สำหรับเทียบเกณฑ์ 15/23 วัน)
+  const combinedUsedDays = (quotas || [])
+    .filter(q => /ลากิจ|ป่วย/.test(q.type_name))
+    .reduce((sum, q) => sum + (Number(q.used_days) || 0), 0);
 
   // แยกประเภทหลัก (ลากิจ + ลาป่วย) vs ประเภทอื่น
   const primaryQ   = (quotas || []).filter(q => /ลากิจ|ป่วย/.test(q.type_name));
@@ -421,8 +427,17 @@ function renderTeacher(quotas, history) {
     const rem   = Number(q.remaining_days) || 0;
     const count = countByType[q.leave_type_id] || 0;
     const pct   = total > 0 ? Math.min(1, used / total) : 0;
-    const ringColor = count >= DANGER_TIMES ? '#ef4444' : count >= WARN_TIMES ? '#f59e0b' : q.color_code;
-    const countColor = count >= DANGER_TIMES ? '#ef4444' : count >= WARN_TIMES ? '#f59e0b' : '#94a3b8';
+    const isDanger = combinedUsedDays >= DANGER_DAYS;
+    const isWarn   = combinedUsedDays >= WARN_DAYS || count >= WARN_TIMES;
+    const ringColor  = isDanger ? '#ef4444' : isWarn ? '#f59e0b' : q.color_code;
+    const countColor = isDanger ? '#ef4444' : isWarn ? '#f59e0b' : '#94a3b8';
+    const warnNote = isDanger
+      ? `<div style="font-size:10px;color:#ef4444;font-weight:700;text-align:center">⚠ เกินเกณฑ์ 23 วัน</div>`
+      : isWarn && combinedUsedDays >= WARN_DAYS
+        ? `<div style="font-size:10px;color:#f59e0b;font-weight:700;text-align:center">ใกล้เกณฑ์ 23 วัน</div>`
+      : count >= WARN_TIMES
+        ? `<div style="font-size:10px;color:#f59e0b;font-weight:700;text-align:center">ลาบ่อยครั้ง (≥${WARN_TIMES} ครั้ง)</div>`
+        : '';
     return `
       <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px">
         <div style="width:90px;height:90px;border-radius:50%;background:conic-gradient(${ringColor} ${Math.round(pct * 360)}deg,#eef2f7 0deg);display:flex;align-items:center;justify-content:center">
@@ -433,6 +448,7 @@ function renderTeacher(quotas, history) {
         </div>
         <div style="font-size:12px;font-weight:700;color:#475569;text-align:center">${esc(q.type_name)}</div>
         <div style="font-size:11px;font-weight:600;color:${countColor}">ใช้ไป ${used} วัน (${count} ครั้ง)</div>
+        ${warnNote}
       </div>`;
   }).join('') || '<div style="font-size:12px;color:#94a3b8;padding:8px">ไม่มีข้อมูลโควตา</div>';
 
@@ -454,6 +470,26 @@ function renderTeacher(quotas, history) {
       </div>`;
   }).join('');
 
+  // Summary bar: วันรวม ลาป่วย+ลากิจ เทียบเกณฑ์เลื่อนเงินเดือน
+  const summaryBarPct = Math.min(1, combinedUsedDays / DANGER_DAYS);
+  const summaryBarColor = combinedUsedDays >= DANGER_DAYS ? '#ef4444' : combinedUsedDays >= WARN_DAYS ? '#f59e0b' : '#22c55e';
+  const summaryNote = combinedUsedDays >= DANGER_DAYS
+    ? 'เกินเกณฑ์ ไม่มีสิทธิ์เลื่อนเงินเดือน'
+    : combinedUsedDays >= WARN_DAYS
+    ? `เกินเกณฑ์ดีเด่น (15 วัน) · เหลืออีก ${DANGER_DAYS - combinedUsedDays} วันถึงเกณฑ์สูงสุด`
+    : `เหลืออีก ${WARN_DAYS - combinedUsedDays} วันถึงเกณฑ์ดีเด่น (15 วัน)`;
+  const summaryBlock = `
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#64748b;margin-bottom:6px">
+        <span>รวมลาป่วย+ลากิจ (เทียบเกณฑ์เลื่อนเงินเดือน)</span>
+        <span style="font-weight:700;color:${summaryBarColor}">${combinedUsedDays}/${DANGER_DAYS} วัน</span>
+      </div>
+      <div style="height:6px;border-radius:999px;background:#eef2f7;overflow:hidden">
+        <div style="height:100%;width:${Math.round(summaryBarPct * 100)}%;background:${summaryBarColor};border-radius:999px;transition:width .4s"></div>
+      </div>
+      <div style="font-size:10px;color:${summaryBarColor};margin-top:4px;font-weight:600">${summaryNote}</div>
+    </div>`;
+
   const secondaryBlock = secondaryQ.length ? `
     <div style="margin-top:14px;border-top:1px solid #f1f5f9;padding-top:12px">
       <div onclick="var s=this.nextElementSibling;s.style.display=s.style.display==='flex'?'none':'flex'"
@@ -463,7 +499,7 @@ function renderTeacher(quotas, history) {
       <div style="display:none;flex-direction:column;gap:8px;margin-top:10px">${secondaryItems}</div>
     </div>` : '';
 
-  const quotaCards = `<div style="display:flex;gap:14px">${primaryCards}</div>${secondaryBlock}`;
+  const quotaCards = `<div style="display:flex;gap:14px">${primaryCards}</div>${summaryBlock}${secondaryBlock}`;
 
   const sorted = (history || []).slice().sort((a, b) => normDate(b.start_date).localeCompare(normDate(a.start_date)));
   const recordCards = sorted.map(r => {
