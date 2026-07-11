@@ -1055,6 +1055,23 @@ window.submitLeaveForm = async () => {
   if (certDays > 0 && daysBetween(from, to) >= certDays && !fileEl.files.length) {
     toast(`ลาป่วยตั้งแต่ ${certDays} วัน ต้องแนบใบรับรองแพทย์`); return;
   }
+  const typeName = typeObj ? typeObj.name : type;
+  const dateRange = from === to ? fmtThai(from) : `${fmtThai(from)} – ${fmtThai(to)}`;
+  const confirm = await Swal.fire({
+    title: 'ยืนยันการส่งใบลา',
+    html: `<div style="text-align:left;font-size:14px;line-height:2">
+      <div><b>ประเภท:</b> ${typeName}</div>
+      <div><b>วันที่:</b> ${dateRange}</div>
+      <div><b>จำนวน:</b> ${days} วัน</div>
+      <div><b>เหตุผล:</b> ${reason}</div>
+    </div>`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#2563eb',
+    confirmButtonText: 'ยืนยัน ส่งใบลา',
+    cancelButtonText: 'ตรวจสอบอีกครั้ง'
+  });
+  if (!confirm.isConfirmed) return;
   showLoader(true);
   try {
     let fileBase64 = null, fileName = null;
