@@ -2,7 +2,8 @@
 const CONFIG = {
   SPREADSHEET_ID: '', // Optional: If empty, uses the active spreadsheet
   LINE_CHANNEL_ACCESS_TOKEN: 'QH1HGxWGjPmmdfxGvOao39gagWbh0u7KQfM6rB2S58fR3+JcBSUfYmfh7Ww2cLDxxAFcCeAdHSNB2WynBCpOIsSh+worEYVsRtolfTPl8yuCtN+ceuJ3MGe/gfzf1ZCSRHpJMlEx1198NcKWxAw9MgdB04t89/1O/w1cDnyilFU=',
-  DRIVE_FOLDER_ID: 'YOUR_DRIVE_FOLDER_ID'
+  DRIVE_FOLDER_ID: 'YOUR_DRIVE_FOLDER_ID',
+  LIFF_ID: '2010662195-iJjI0NIA'
 };
 
 function getSpreadsheet() {
@@ -13,7 +14,7 @@ function doGet(e) {
   // Simple ping endpoint
   return ContentService.createTextOutput(JSON.stringify({
     status: "API is active",
-    version: "3.3 (round avatar box fix)"
+    version: "3.6 (configurable approval steps)"
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -77,7 +78,9 @@ function doPost(e) {
       'deleteHoliday',
       'yearlyReset',
       'getSignatories',
-      'uploadProfilePhoto'
+      'uploadProfilePhoto',
+      'getSettings',
+      'saveSettings'
     ];
     
     if (allowedActions.includes(action) && typeof this[action] === 'function') {
@@ -237,6 +240,21 @@ function setAdminCredentials(username, password) {
 // (ห้ามกด Run ที่ setAdminCredentials ตรง ๆ เพราะจะไม่มี argument ส่งเข้าไป)
 function configureAdmin() {
   setAdminCredentials('admin', 'ChangeMe1234');
+}
+
+function getSettings() {
+  const props = PropertiesService.getScriptProperties();
+  return {
+    approval_steps: parseInt(props.getProperty('APPROVAL_STEPS') || '2')
+  };
+}
+
+function saveSettings(data) {
+  const props = PropertiesService.getScriptProperties();
+  if (data && data.approval_steps) {
+    props.setProperty('APPROVAL_STEPS', String(parseInt(data.approval_steps)));
+  }
+  return { ok: true };
 }
 
 // Create LeaveQuotas rows for a user from every LeaveType (skips existing).
@@ -444,7 +462,8 @@ function updateLeaveStatusAPI(reqId, action, comments, approverId, approverRole)
       newStatus = 'Rejected';
     } else if (action === 'approve') {
       if (approverRole === 'HR' && req.status === 'Pending_HR') {
-        newStatus = 'Pending_Director';
+        const approvalSteps = parseInt(PropertiesService.getScriptProperties().getProperty('APPROVAL_STEPS') || '2');
+        newStatus = (approvalSteps === 1) ? 'Approved' : 'Pending_Director';
       } else if ((approverRole === 'Director' || approverRole === 'Admin') && req.status === 'Pending_Director') {
         newStatus = 'Approved';
       } else {
@@ -847,6 +866,27 @@ function fiscalYearRange(ty) {
   return { start: `${ce - 1}-10-01`, end: `${ce}-09-30` };
 }
 
+// Count a teacher's leave occurrences of one type within the current fiscal
+// year (excludes Cancelled/Rejected). Used in approver + result notifications.
+function countLeavesThisFiscalYear(ss, teacherId, leaveTypeId) {
+  const { start, end } = fiscalYearRange(currentFiscalYear());
+  const sheet = ss.getSheetByName('LeaveRequests');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  let count = 0;
+  for (let i = 1; i < data.length; i++) {
+    const row = arrayToObject(headers, data[i]);
+    if (String(row.teacher_id) !== String(teacherId)) continue;
+    if (String(row.leave_type_id) !== String(leaveTypeId)) continue;
+    if (row.status === 'Cancelled' || row.status === 'Rejected') continue;
+    const ds = row.start_date instanceof Date
+      ? Utilities.formatDate(row.start_date, 'Asia/Bangkok', 'yyyy-MM-dd')
+      : String(row.start_date).slice(0, 10);
+    if (ds >= start && ds <= end) count++;
+  }
+  return count;
+}
+
 // Adjust a teacher's quota counters by deltas: { pending, used, remaining }
 function applyQuotaDelta(teacherId, leaveTypeId, delta) {
   const ss = getSpreadsheet();
@@ -1000,21 +1040,7 @@ function notifyApprover(reqId, reqData, targetRole, reviewerName) {
   const totalUsedAll = quotas.reduce((sum, q) => sum + Number(q.used_days || 0), 0);
 
   const fiscalYear = currentFiscalYear();
-  const { start: fyStart, end: fyEnd } = fiscalYearRange(fiscalYear);
-  const rqSheet = ss.getSheetByName('LeaveRequests');
-  const rqData = rqSheet.getDataRange().getValues();
-  const rqHeaders = rqData[0];
-  let leaveCountThisType = 0;
-  for (let i = 1; i < rqData.length; i++) {
-    const row = arrayToObject(rqHeaders, rqData[i]);
-    if (String(row.teacher_id) !== String(reqData.teacher_id)) continue;
-    if (String(row.leave_type_id) !== String(reqData.leave_type_id)) continue;
-    if (row.status === 'Cancelled' || row.status === 'Rejected') continue;
-    const ds = row.start_date instanceof Date
-      ? Utilities.formatDate(row.start_date, 'Asia/Bangkok', 'yyyy-MM-dd')
-      : String(row.start_date).slice(0, 10);
-    if (ds >= fyStart && ds <= fyEnd) leaveCountThisType++;
-  }
+  const leaveCountThisType = countLeavesThisFiscalYear(ss, reqData.teacher_id, reqData.leave_type_id);
 
   const startThai = formatThaiDate(reqData.start_date);
   const endThai   = formatThaiDate(reqData.end_date);
@@ -1182,6 +1208,7 @@ function notifyTeacherStatusChange(teacherId, status, comment, req, approverRole
   if (!CONFIG.LINE_CHANNEL_ACCESS_TOKEN || CONFIG.LINE_CHANNEL_ACCESS_TOKEN.includes("YOUR_")) return;
   if (status !== 'Approved' && status !== 'Rejected') return;
 
+  const ss = getSpreadsheet();
   const teacher = getTeacherById(teacherId);
   if (!teacher || !teacher.line_user_id) return;
 
@@ -1194,57 +1221,120 @@ function notifyTeacherStatusChange(teacherId, status, comment, req, approverRole
   const daysText  = req ? `${req.total_days} วัน` : '-';
 
   const isApproved  = status === 'Approved';
-  const headerBg    = isApproved ? '#06C755' : '#e02424';
-  const headerText  = isApproved ? 'อนุมัติใบลาเรียบร้อย' : 'ไม่อนุมัติใบลา';
-  const altText     = isApproved ? 'แจ้งผลการอนุมัติใบลา: อนุมัติแล้ว' : 'แจ้งผลการอนุมัติใบลา: ไม่อนุมัติ';
-  const commentLabel = isApproved
-    ? (approverRole === 'HR' ? 'หมายเหตุจากฝ่ายบุคคล:' : 'หมายเหตุจากผู้อำนวยการ:')
-    : (approverRole === 'HR' ? 'เหตุผลจากฝ่ายบุคคล:' : 'เหตุผลจากผู้อำนวยการ:');
+  const headerText  = isApproved ? 'อนุมัติการลาแล้ว' : 'ไม่อนุมัติการลา';
+  const altText     = isApproved ? `การลาของคุณได้รับการอนุมัติแล้ว (${typeName})` : `การลาของคุณไม่ได้รับการอนุมัติ (${typeName})`;
+  const gradStart   = isApproved ? '#16A34A' : '#B91C1C';
+  const gradEnd     = isApproved ? '#22C55E' : '#EF4444';
+  const accent      = isApproved ? '#16A34A' : '#E02424';
+  const statusLabel = isApproved ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ';
+  const approverName = approverRole === 'HR' ? 'ฝ่ายบุคคล' : 'ผู้อำนวยการโรงเรียน';
+
+  const teacherFullName = `${teacher.prefix || ''}${teacher.name} ${teacher.surname}`;
+  const positionText = [teacher.position, teacher.department].filter(Boolean).join(' • ');
+  const decidedAt = formatThaiDateTime(new Date().toISOString());
+
+  // Fiscal-year stats (quota already updated before this runs)
+  const fiscalYear = currentFiscalYear();
+  const quotas = getLeaveQuotas(teacherId);
+  const thisTypeQuota = req ? quotas.find(q => String(q.leave_type_id) === String(req.leave_type_id)) : null;
+  const totalUsedAll = quotas.reduce((sum, q) => sum + Number(q.used_days || 0), 0);
+  const leaveCount = req ? countLeavesThisFiscalYear(ss, teacherId, req.leave_type_id) : 0;
+
+  const body = [];
+
+  // ── Teacher info ──
+  body.push({
+    "type": "box", "layout": "horizontal", "spacing": "md",
+    "contents": [
+      { "type": "box", "layout": "vertical", "width": "56px", "height": "56px", "cornerRadius": "28px",
+        "backgroundColor": gradStart, "justifyContent": "center", "alignItems": "center",
+        "contents": [{ "type": "text", "text": (teacher.name || '?')[0], "color": "#FFFFFF", "weight": "bold", "size": "lg", "align": "center", "gravity": "center" }] },
+      { "type": "box", "layout": "vertical", "contents": [
+        { "type": "text", "text": teacherFullName, "weight": "bold", "size": "md" },
+        { "type": "text", "text": positionText || '-', "size": "xs", "color": "#888888", "wrap": true },
+        { "type": "box", "layout": "horizontal", "margin": "sm", "alignItems": "center", "spacing": "sm",
+          "contents": [ _dot(accent), { "type": "text", "text": statusLabel, "weight": "bold", "size": "sm", "color": accent } ] }
+      ]}
+    ]
+  });
+
+  body.push({ "type": "separator" });
+
+  // ── Leave details (no request number) ──
+  body.push({
+    "type": "box", "layout": "vertical", "spacing": "sm",
+    "contents": [
+      { "type": "text", "text": "รายละเอียดการลา", "weight": "bold", "size": "md" },
+      _infoRow("ประเภท", typeName),
+      _infoRow("วันที่", dateText),
+      _infoRow("จำนวน", daysText)
+    ]
+  });
+
+  body.push({ "type": "separator" });
+
+  // ── Approver box ──
+  const approverContents = [
+    { "type": "text", "text": isApproved ? "ผู้อนุมัติ" : "ผู้พิจารณา", "weight": "bold", "size": "sm", "color": accent },
+    { "type": "text", "text": approverName, "weight": "bold", "size": "md" },
+    { "type": "text", "text": decidedAt, "size": "sm", "color": "#666666" }
+  ];
+  if (comment) {
+    approverContents.push({ "type": "text", "text": (isApproved ? "หมายเหตุ: " : "เหตุผล: ") + comment, "wrap": true, "size": "sm", "color": "#333333", "margin": "sm" });
+  }
+  body.push({
+    "type": "box", "layout": "vertical", "backgroundColor": isApproved ? "#F0FDF4" : "#FEF2F2",
+    "cornerRadius": "12px", "paddingAll": "14px", "spacing": "sm", "contents": approverContents
+  });
+
+  body.push({ "type": "separator" });
+
+  // ── Leave rights (updated) ──
+  const statsContents = [
+    { "type": "text", "text": `สิทธิ์การลา ปีงบประมาณ ${fiscalYear}`, "weight": "bold" }
+  ];
+  if (thisTypeQuota) {
+    statsContents.push(_statRow(typeName, `ใช้ ${thisTypeQuota.used_days} / ${thisTypeQuota.total_quota} วัน`, "#F97316"));
+    statsContents.push(_statRow("คงเหลือ", `${thisTypeQuota.remaining_days} วัน`, Number(thisTypeQuota.remaining_days) < 0 ? "#EF4444" : "#16A34A"));
+    statsContents.push(_statRow("จำนวนครั้ง", `${leaveCount} ครั้ง`, "#333333"));
+  }
+  statsContents.push(_statRow("ลารวมทุกประเภท", `${totalUsedAll} วัน`, "#2563EB"));
+  body.push({
+    "type": "box", "layout": "vertical", "backgroundColor": "#F8FAFC",
+    "cornerRadius": "12px", "paddingAll": "14px", "spacing": "md", "contents": statsContents
+  });
+
+  // ── Closing message ──
+  body.push({
+    "type": "box", "layout": "vertical", "margin": "lg",
+    "backgroundColor": isApproved ? "#ECFDF5" : "#FEF2F2", "cornerRadius": "10px", "paddingAll": "12px",
+    "contents": [
+      { "type": "text",
+        "text": isApproved
+          ? "การลาของคุณได้รับการอนุมัติเรียบร้อยแล้ว ระบบได้บันทึกรายการลาและอัปเดตสิทธิ์การลาของคุณแล้ว"
+          : "คำขอลาของคุณไม่ได้รับการอนุมัติ หากมีข้อสงสัยโปรดติดต่อฝ่ายบุคคล",
+        "wrap": true, "align": "center", "size": "sm", "color": isApproved ? "#166534" : "#991B1B" }
+    ]
+  });
 
   const flex = {
-    "type": "flex",
-    "altText": altText,
+    "type": "flex", "altText": altText,
     "contents": {
       "type": "bubble", "size": "mega",
       "header": {
-        "type": "box", "layout": "vertical", "backgroundColor": headerBg, "paddingAll": "20px",
+        "type": "box", "layout": "vertical", "paddingAll": "20px",
+        "background": { "type": "linearGradient", "angle": "0deg", "startColor": gradStart, "endColor": gradEnd },
         "contents": [
-          { "type": "text", "text": headerText, "weight": "bold", "color": "#FFFFFF", "size": "lg" },
-          { "type": "text", "text": "โรงเรียนบ้านห้วยตาด", "color": "#FFFFFF99", "size": "xs", "margin": "sm" }
+          { "type": "text", "text": headerText, "weight": "bold", "color": "#FFFFFF", "size": "xl" },
+          { "type": "text", "text": "โรงเรียนบ้านห้วยตาด", "color": "#FFFFFFCC", "size": "sm", "margin": "sm" }
         ]
       },
-      "body": {
-        "type": "box", "layout": "vertical",
+      "body": { "type": "box", "layout": "vertical", "spacing": "lg", "contents": body },
+      "footer": {
+        "type": "box", "layout": "vertical", "spacing": "md",
         "contents": [
-          {
-            "type": "box", "layout": "baseline", "margin": "md",
-            "contents": [
-              { "type": "text", "text": "ประเภท", "color": "#aaaaaa", "size": "sm", "flex": 2 },
-              { "type": "text", "text": typeName, "wrap": true, "color": "#666666", "size": "sm", "flex": 4, "weight": "bold" }
-            ]
-          },
-          {
-            "type": "box", "layout": "baseline", "margin": "md",
-            "contents": [
-              { "type": "text", "text": "วันที่", "color": "#aaaaaa", "size": "sm", "flex": 2 },
-              { "type": "text", "text": dateText, "wrap": true, "color": "#666666", "size": "sm", "flex": 4 }
-            ]
-          },
-          {
-            "type": "box", "layout": "baseline", "margin": "md",
-            "contents": [
-              { "type": "text", "text": "จำนวน", "color": "#aaaaaa", "size": "sm", "flex": 2 },
-              { "type": "text", "text": daysText, "wrap": true, "color": "#666666", "size": "sm", "flex": 4 }
-            ]
-          },
-          { "type": "separator", "margin": "xxl" },
-          {
-            "type": "box", "layout": "vertical", "margin": "md",
-            "contents": [
-              { "type": "text", "text": commentLabel, "color": "#aaaaaa", "size": "xs" },
-              { "type": "text", "text": comment || (isApproved ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ'), "wrap": true, "color": "#333333", "size": "sm", "margin": "sm", "style": "italic" }
-            ]
-          }
+          { "type": "button", "style": "primary", "color": "#2563EB",
+            "action": { "type": "uri", "label": "เปิดระบบลา", "uri": "https://liff.line.me/" + CONFIG.LIFF_ID } }
         ]
       }
     }

@@ -13,7 +13,7 @@ window.setTab = (role, idx) => {
 const NAV_BY_ROLE = {
   HR: [['chart', 'ภาพรวม'], ['checkCircle', 'รออนุมัติ'], ['list', 'รายงานการลา'], ['users', 'บุคลากร']],
   Director: [['checkCircle', 'รออนุมัติ'], ['calendar', 'ปฏิทินโรงเรียน']],
-  Admin: [['user', 'ผู้ใช้งาน'], ['folder', 'ประเภทการลา'], ['calendar', 'วันหยุด'], ['user', 'ผู้ลงนาม'], ['alert', 'อันตราย']],
+  Admin: [['user', 'ผู้ใช้งาน'], ['folder', 'ประเภทการลา'], ['calendar', 'วันหยุด'], ['user', 'ผู้ลงนาม'], ['alert', 'อันตราย'], ['settings', 'ตั้งค่าระบบ']],
 };
 
 function sidebar(role, badges = {}) {

@@ -2,12 +2,12 @@
 // admin.js — Admin portal
 // ===========================================================================
 
-let _adminData = { teachers: [], holidays: [], records: [], pendingUsers: [] };
+let _adminData = { teachers: [], holidays: [], records: [], pendingUsers: [], settings: { approval_steps: 2 } };
 async function loadAdmin() {
-  const [teachers, holidays, records, pendingUsers] = await Promise.all([
-    api.getAllTeachers(), api.getHolidays(), api.getAllLeaveReport(), api.getPendingUsers()
+  const [teachers, holidays, records, pendingUsers, settings] = await Promise.all([
+    api.getAllTeachers(), api.getHolidays(), api.getAllLeaveReport(), api.getPendingUsers(), api.getSettings()
   ]);
-  _adminData = { teachers, holidays, records, pendingUsers };
+  _adminData = { teachers, holidays, records, pendingUsers, settings };
   renderAdmin();
 }
 
@@ -144,7 +144,32 @@ function renderAdmin() {
       <div onclick="confirmYearlyReset()" class="dc-hover" style="cursor:pointer;display:inline-block;background:#dc2626;color:#fff;padding:10px 22px;border-radius:9px;font-size:13px;font-weight:700">ยกยอดวันลาข้ามปี (Reset)</div>
     </div>`;
 
-  const pageTitles = ['จัดการผู้ใช้งาน', 'ประเภทการลา/โควตา', 'วันหยุดราชการ', 'ผู้ลงนามในใบลา', 'พื้นที่อันตราย'];
+  const steps = (s.settings && s.settings.approval_steps) ? s.settings.approval_steps : 2;
+  const tab5 = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px">ตั้งค่าระบบ</div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:24px;max-width:500px">
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px">ขั้นตอนการอนุมัติใบลา</div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:18px">กำหนดว่าใบลาต้องผ่านกี่ขั้นตอนก่อนถือว่าอนุมัติ</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:22px">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:14px;border:2px solid ${steps==1?'#2563eb':'#e2e8f0'};border-radius:10px;background:${steps==1?'#eff6ff':'#fff'}">
+          <input type="radio" name="approval_steps" value="1" ${steps==1?'checked':''} style="margin-top:2px;accent-color:#2563eb">
+          <div>
+            <div style="font-size:13px;font-weight:700">1 ขั้นตอน</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">ครู → HR อนุมัติ → แจ้งผลครูทันที</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:14px;border:2px solid ${steps!=1?'#2563eb':'#e2e8f0'};border-radius:10px;background:${steps!=1?'#eff6ff':'#fff'}">
+          <input type="radio" name="approval_steps" value="2" ${steps!=1?'checked':''} style="margin-top:2px;accent-color:#2563eb">
+          <div>
+            <div style="font-size:13px;font-weight:700">2 ขั้นตอน <span style="font-size:11px;font-weight:600;background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:999px;margin-left:6px">ค่าเริ่มต้น</span></div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">ครู → HR อนุมัติ → ผู้อำนวยการอนุมัติ → แจ้งผลครู</div>
+          </div>
+        </label>
+      </div>
+      <div onclick="saveSystemSettings()" class="dc-hover" style="cursor:pointer;display:inline-block;background:#2563eb;color:#fff;padding:10px 22px;border-radius:9px;font-size:13px;font-weight:700">บันทึกการตั้งค่า</div>
+    </div>`;
+
+  const pageTitles = ['จัดการผู้ใช้งาน', 'ประเภทการลา/โควตา', 'วันหยุดราชการ', 'ผู้ลงนามในใบลา', 'พื้นที่อันตราย', 'ตั้งค่าระบบ'];
 
   document.getElementById('view-admin').innerHTML = `
     <div class="dc-shell" style="display:flex;min-height:100vh">
@@ -153,7 +178,7 @@ function renderAdmin() {
         <div style="margin-bottom:22px">
           <div style="font-size:22px;font-weight:800">${pageTitles[tab]}</div>
         </div>
-        ${[tab0, tab1, tab2, tab3, tab4][tab] || ''}
+        ${[tab0, tab1, tab2, tab3, tab4, tab5][tab] || ''}
       </div>
     </div>`;
 }
@@ -202,6 +227,18 @@ window.saveDocConfig = () => {
   localStorage.setItem('director_name', DIRECTOR_NAME);
   localStorage.setItem('preparer_name', PREPARER_NAME);
   toast('บันทึกข้อมูลผู้ลงนามเรียบร้อย');
+};
+window.saveSystemSettings = async () => {
+  const selected = document.querySelector('input[name="approval_steps"]:checked');
+  if (!selected) return;
+  const steps = parseInt(selected.value);
+  showLoader(true);
+  try {
+    await api.saveSettings({ approval_steps: steps });
+    _adminData.settings = { approval_steps: steps };
+    renderAdmin();
+    toast(`บันทึกแล้ว: ${steps === 1 ? '1 ขั้นตอน (HR → ครู)' : '2 ขั้นตอน (HR → ผอ. → ครู)'}`);
+  } catch (err) { swalError(err.message); } finally { showLoader(false); }
 };
 window.confirmYearlyReset = async () => {
   const c = await Swal.fire({
