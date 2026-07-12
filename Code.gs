@@ -12,8 +12,8 @@ function getSpreadsheet() {
 function doGet(e) {
   // Simple ping endpoint
   return ContentService.createTextOutput(JSON.stringify({
-    status: "API is active", 
-    version: "2.0 (Teacher terminology)"
+    status: "API is active",
+    version: "3.0 (Flex Message + Fiscal Year)"
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
