@@ -13,7 +13,7 @@ function doGet(e) {
   // Simple ping endpoint
   return ContentService.createTextOutput(JSON.stringify({
     status: "API is active",
-    version: "3.1 (Flex dot fix)"
+    version: "3.2 (photo via payload, no blocking fetch)"
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -941,18 +941,6 @@ function formatThaiDate(isoDate) {
   return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear() + 543}`;
 }
 
-function getLineProfilePicUrl(lineUserId) {
-  if (!lineUserId || CONFIG.LINE_CHANNEL_ACCESS_TOKEN.includes("YOUR_")) return '';
-  try {
-    const res = UrlFetchApp.fetch(`https://api.line.me/v2/profile/${lineUserId}`, {
-      headers: { 'Authorization': `Bearer ${CONFIG.LINE_CHANNEL_ACCESS_TOKEN}` },
-      muteHttpExceptions: true
-    });
-    if (res.getResponseCode() === 200) return JSON.parse(res.getContentText()).pictureUrl || '';
-  } catch(e) {}
-  return '';
-}
-
 function formatThaiDateTime(isoStr) {
   if (!isoStr) return '-';
   const M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
@@ -1034,7 +1022,9 @@ function notifyApprover(reqId, reqData, targetRole, reviewerName) {
   const teacherFullName = `${teacher.prefix || ''}${teacher.name} ${teacher.surname}`;
   const positionText = [teacher.position, teacher.department].filter(Boolean).join(' • ');
   const createdAtText = formatThaiDateTime(reqData.created_at);
-  const teacherPhotoUrl = getLineProfilePicUrl(teacher.line_user_id);
+  // Photo comes from the submit payload (frontend LIFF profile); no blocking
+  // LINE profile API call on the request path. Director/cron paths have none -> initials.
+  const teacherPhotoUrl = reqData.photo_url || '';
 
   const approvers = teachers.filter(t => t.role === targetRole && t.line_user_id && t.status === 'Active');
 

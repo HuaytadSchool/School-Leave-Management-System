@@ -105,7 +105,8 @@ window.submitLeaveForm = async () => {
     if (fileEl.files.length) { fileName = fileEl.files[0].name; fileBase64 = await toBase64(fileEl.files[0]); }
     await api.submitLeaveRequest({
       teacher_id: currentUser.id, leave_type_id: type, start_date: from, end_date: to,
-      total_days: days, reason, fileBase64, fileName
+      total_days: days, reason, fileBase64, fileName,
+      photo_url: currentLineProfile ? currentLineProfile.pictureUrl : ''
     });
     closeModal();
     toast('ส่งใบลาสำเร็จ รอการอนุมัติ');
