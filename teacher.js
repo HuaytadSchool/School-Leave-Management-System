@@ -19,7 +19,6 @@ function renderTeacher(quotas, history) {
   const aColor = avatarColor(u.id);
 
   const WARN_TIMES  = 6;
-  const WARN_DAYS   = 15;
   const DANGER_DAYS = 23;
 
   const countByType = {};
@@ -41,18 +40,11 @@ function renderTeacher(quotas, history) {
     const count = countByType[q.leave_type_id] || 0;
     const pct   = total > 0 ? Math.min(1, used / total) : 0;
     const isDanger = combinedUsedDays >= DANGER_DAYS;
-    const isWarn   = combinedUsedDays >= WARN_DAYS || count >= WARN_TIMES;
+    const isWarn   = count >= WARN_TIMES;
     const ringColor  = isDanger ? '#ef4444' : isWarn ? '#f59e0b' : q.color_code;
     const countColor = isDanger ? '#ef4444' : isWarn ? '#f59e0b' : '#94a3b8';
-    const warnNote = isDanger
-      ? `<div style="font-size:10px;color:#ef4444;font-weight:700;text-align:center">⚠ เกินเกณฑ์ 23 วัน</div>`
-      : isWarn && combinedUsedDays >= WARN_DAYS
-        ? `<div style="font-size:10px;color:#f59e0b;font-weight:700;text-align:center">ใกล้เกณฑ์ 23 วัน</div>`
-      : count >= WARN_TIMES
-        ? `<div style="font-size:10px;color:#f59e0b;font-weight:700;text-align:center">ลาบ่อยครั้ง (≥${WARN_TIMES} ครั้ง)</div>`
-        : '';
     return `
-      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px">
+      <div style="flex:1;min-width:90px;display:flex;flex-direction:column;align-items:center;gap:8px">
         <div style="width:90px;height:90px;border-radius:50%;background:conic-gradient(${ringColor} ${Math.round(pct * 360)}deg,#eef2f7 0deg);display:flex;align-items:center;justify-content:center">
           <div style="width:72px;height:72px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center">
             <div style="font-size:22px;font-weight:800;color:#0f172a;line-height:1">${rem}</div>
@@ -61,7 +53,6 @@ function renderTeacher(quotas, history) {
         </div>
         <div style="font-size:12px;font-weight:700;color:#475569;text-align:center">${esc(q.type_name)}</div>
         <div style="font-size:11px;font-weight:600;color:${countColor}">ใช้ไป ${used} วัน (${count} ครั้ง)</div>
-        ${warnNote}
       </div>`;
   }).join('') || '<div style="font-size:12px;color:#94a3b8;padding:8px">ไม่มีข้อมูลโควตา</div>';
 
@@ -83,25 +74,6 @@ function renderTeacher(quotas, history) {
       </div>`;
   }).join('');
 
-  const summaryBarPct = Math.min(1, combinedUsedDays / DANGER_DAYS);
-  const summaryBarColor = combinedUsedDays >= DANGER_DAYS ? '#ef4444' : combinedUsedDays >= WARN_DAYS ? '#f59e0b' : '#22c55e';
-  const summaryNote = combinedUsedDays >= DANGER_DAYS
-    ? 'เกินเกณฑ์ ไม่มีสิทธิ์เลื่อนเงินเดือน'
-    : combinedUsedDays >= WARN_DAYS
-    ? `เกินเกณฑ์ดีเด่น (15 วัน) · เหลืออีก ${DANGER_DAYS - combinedUsedDays} วันถึงเกณฑ์สูงสุด`
-    : `เหลืออีก ${WARN_DAYS - combinedUsedDays} วันถึงเกณฑ์ดีเด่น (15 วัน)`;
-  const summaryBlock = `
-    <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9">
-      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#64748b;margin-bottom:6px">
-        <span>รวมลาป่วย+ลากิจ (เทียบเกณฑ์เลื่อนเงินเดือน)</span>
-        <span style="font-weight:700;color:${summaryBarColor}">${combinedUsedDays}/${DANGER_DAYS} วัน</span>
-      </div>
-      <div style="height:6px;border-radius:999px;background:#eef2f7;overflow:hidden">
-        <div style="height:100%;width:${Math.round(summaryBarPct * 100)}%;background:${summaryBarColor};border-radius:999px;transition:width .4s"></div>
-      </div>
-      <div style="font-size:10px;color:${summaryBarColor};margin-top:4px;font-weight:600">${summaryNote}</div>
-    </div>`;
-
   const secondaryBlock = secondaryQ.length ? `
     <div style="margin-top:14px;border-top:1px solid #f1f5f9;padding-top:12px">
       <div onclick="var s=this.nextElementSibling;s.style.display=s.style.display==='flex'?'none':'flex'"
@@ -111,10 +83,11 @@ function renderTeacher(quotas, history) {
       <div style="display:none;flex-direction:column;gap:8px;margin-top:10px">${secondaryItems}</div>
     </div>` : '';
 
-  const quotaCards = `<div style="display:flex;gap:14px">${primaryCards}</div>${summaryBlock}${secondaryBlock}`;
+  const quotaCards = `<div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center">${primaryCards}</div>${secondaryBlock}`;
 
   const sorted = (history || []).slice().sort((a, b) => normDate(b.start_date).localeCompare(normDate(a.start_date)));
-  const recordCards = sorted.map(r => {
+
+  function makeRecordCard(r) {
     const sm = statusMeta(r.status);
     const from = normDate(r.start_date), to = normDate(r.end_date);
     const range = from === to ? fmtThai(from) : `${fmtShort(from)} - ${fmtThai(to)}`;
@@ -134,7 +107,22 @@ function renderTeacher(quotas, history) {
         <div style="font-size:12px;color:#94a3b8">${esc(r.reason)}</div>
         ${remark}${cancelBtn}${printBtn}
       </div>`;
-  }).join('') || '<div style="font-size:12px;color:#94a3b8;padding:20px;text-align:center">ยังไม่มีประวัติการลา</div>';
+  }
+
+  const latestCard = sorted.length
+    ? makeRecordCard(sorted[0])
+    : '<div style="font-size:12px;color:#94a3b8;padding:20px;text-align:center">ยังไม่มีประวัติการลา</div>';
+
+  const historyRest = sorted.slice(1);
+  const historyToggle = historyRest.length ? `
+    <div onclick="(function(btn){var s=btn.nextElementSibling;var open=s.style.display==='flex';s.style.display=open?'none':'flex';btn.querySelector('.hist-label').textContent=open?'ดูประวัติย้อนหลัง (${historyRest.length} รายการ)':'ซ่อนประวัติย้อนหลัง';btn.querySelector('.hist-arrow').style.transform=open?'rotate(0deg)':'rotate(180deg)'})(this)"
+         style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 0 4px;font-size:12px;font-weight:600;color:#2563eb;cursor:pointer">
+      <span class="hist-arrow" style="display:inline-flex;transition:transform .2s">${svg('chevronDown', 14)}</span>
+      <span class="hist-label">ดูประวัติย้อนหลัง (${historyRest.length} รายการ)</span>
+    </div>
+    <div style="display:none;flex-direction:column;gap:10px">
+      ${historyRest.map(makeRecordCard).join('')}
+    </div>` : '';
 
   document.getElementById('view-teacher').innerHTML = `
     <div style="min-height:100vh;display:flex;justify-content:center;padding:0 0 100px">
@@ -160,7 +148,10 @@ function renderTeacher(quotas, history) {
             <div style="font-size:14px;font-weight:700;flex:1">ประวัติการลา</div>
             <div style="font-size:12px;color:#94a3b8">${sorted.length} รายการ</div>
           </div>
-          <div style="display:flex;flex-direction:column;gap:10px">${recordCards}</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            ${latestCard}
+            ${historyToggle}
+          </div>
         </div>
 
         <div onclick="openLeaveForm()" class="dc-hover dc-fab" style="position:fixed;bottom:28px;right:calc(50% - 199px);width:58px;height:58px;border-radius:50%;background:#2563eb;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 28px rgba(37,99,235,.4);cursor:pointer;font-size:28px;z-index:50">+</div>

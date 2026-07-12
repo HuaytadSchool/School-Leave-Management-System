@@ -367,7 +367,12 @@ function showView(id) {
 async function routeByRole() {
   showLoader(true);
   try {
-    [leaveTypes, _holidays] = await Promise.all([api.getLeaveTypes(), api.getHolidays()]);
+    const [lt, hol, sig] = await Promise.all([api.getLeaveTypes(), api.getHolidays(), api.getSignatories()]);
+    leaveTypes = lt; _holidays = hol;
+    if (sig) {
+      if (sig.director) { DIRECTOR_NAME = sig.director; localStorage.setItem('director_name', sig.director); }
+      if (sig.hr)       { PREPARER_NAME = sig.hr;       localStorage.setItem('preparer_name', sig.hr); }
+    }
     await reloadPortal();
   } catch (err) { swalError(err.message); }
   finally { showLoader(false); }
