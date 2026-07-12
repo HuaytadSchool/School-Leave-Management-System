@@ -109,8 +109,8 @@ window.openNotifications = () => {
         <div style="display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid #f1f5f9;gap:8px;flex:none">
           <div style="font-size:15px;font-weight:800;flex:1">การแจ้งเตือน</div>
           <div onclick="markAllNotiRead()" style="font-size:11.5px;font-weight:600;color:#2563eb;cursor:pointer;white-space:nowrap">ทำเครื่องหมายว่าอ่านทั้งหมด</div>
-          <div onclick="logout()" style="cursor:pointer;display:inline-flex;padding:3px">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${GEAR_PATH}</svg>
+          <div onclick="logout()" style="cursor:pointer;display:inline-flex;padding:3px;color:#64748b">
+            ${svg('logout', 16)}
           </div>
         </div>
         <div style="overflow-y:auto;flex:1">${items}</div>
@@ -633,7 +633,7 @@ function renderTeacher(quotas, history) {
     </div>`;
 
   const _notiReadIds = new Set(JSON.parse(localStorage.getItem('noti_read_' + u.id) || '[]'));
-  const unreadCount  = (history || []).filter(r => !_notiReadIds.has(r.id)).length;
+  const unreadCount  = (history || []).filter(r => (r.status === 'Approved' || r.status === 'Rejected') && !_notiReadIds.has(r.id)).length;
   const BELL_PATH    = '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>';
   const NGEAR_PATH   = '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>';
 
@@ -652,8 +652,8 @@ function renderTeacher(quotas, history) {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${BELL_PATH}</svg>
                 ${unreadCount > 0 ? `<div id="noti-badge" style="position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;background:#ef4444;border-radius:999px;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;padding:0 3px">${unreadCount > 9 ? '9+' : unreadCount}</div>` : '<div id="noti-badge" style="display:none"></div>'}
               </div>
-              <div onclick="logout()" style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;cursor:pointer">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${NGEAR_PATH}</svg>
+              <div onclick="logout()" style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff">
+                ${svg('logout', 18)}
               </div>
             </div>
             <!-- Profile row -->
