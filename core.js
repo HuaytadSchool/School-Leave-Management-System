@@ -3,7 +3,7 @@
 // ===========================================================================
 
 const LIFF_ID = "2010662195-iJjI0NIA";
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyDg8ZhhcPxgO0V3uizc6EYLKrbbXg_1m3e3tNbg7YXQiHPGDeE6_8aEpT06Vs67HTiCQ/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUwZkp_5g_nUG2WwpuQ0X2LdLa9tW6NTViA7pXd2dTRuoCEVnmn5O74LM10IEfhjOeiA/exec";
 const SCHOOL_LOGO_URL = 'https://img2.pic.in.th/logo-ht.png';
 
 // ---- Global state ----
@@ -54,9 +54,10 @@ function avatarColor(seed) { let n = 0; for (const c of String(seed)) n += c.cha
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 function statusMeta(status) {
-  if (status === 'Approved') return { label: 'อนุมัติแล้ว', bg: '#f0fdf4', color: '#15803d' };
-  if (status === 'Rejected') return { label: 'ไม่อนุมัติ', bg: '#fef2f2', color: '#b91c1c' };
-  if (status === 'Cancelled') return { label: 'ยกเลิกแล้ว', bg: '#f1f5f9', color: '#64748b' };
+  if (status === 'Approved')         return { label: 'อนุมัติแล้ว',    bg: '#f0fdf4', color: '#15803d' };
+  if (status === 'Rejected')         return { label: 'ไม่อนุมัติ',     bg: '#fef2f2', color: '#b91c1c' };
+  if (status === 'Cancelled')        return { label: 'ยกเลิกแล้ว',    bg: '#f1f5f9', color: '#64748b' };
+  if (status === 'Pending_Director') return { label: 'รออนุมัติ ผอ.', bg: '#fff7ed', color: '#c2410c' };
   return { label: 'รออนุมัติ', bg: '#fffbeb', color: '#b45309' };
 }
 const isPending = (s) => String(s).indexOf('Pending') === 0 || s === 'Pending';

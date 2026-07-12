@@ -394,9 +394,9 @@ function submitLeaveRequest(data) {
       data.total_days, data.reason, attachmentUrl, 'Pending_HR', '', '', '', new Date().toISOString()
     ]);
     
-    // Notification to HR
-    notifyApprover(reqId, data, 'HR');
-    
+    // Notification to HR (non-fatal: LINE errors must not block the submission)
+    try { notifyApprover(reqId, data, 'HR'); } catch(e) { Logger.log('HR notify failed: ' + e); }
+
     return { success: true, reqId: reqId };
     
   } catch (e) {
@@ -485,14 +485,16 @@ function updateLeaveStatusAPI(reqId, action, comments, approverId, approverRole)
       reqSheet.getRange(reqRowIdx, rHeaders.indexOf('approver_l2_id') + 1).setValue(approverId);
     }
     
-    // Notifications
-    if (newStatus === 'Pending_Director') {
-      const hrTeacher = approverId && approverId !== 'Self' ? getTeacherById(approverId) : null;
-      const hrName = hrTeacher ? `${hrTeacher.prefix || ''}${hrTeacher.name} ${hrTeacher.surname}` : 'ฝ่ายบุคคล';
-      notifyApprover(reqId, req, 'Director', hrName);
-    } else {
-      notifyTeacherStatusChange(req.teacher_id, newStatus, comments, req, approverRole);
-    }
+    // Notifications (non-fatal: LINE errors must not block status updates)
+    try {
+      if (newStatus === 'Pending_Director') {
+        const hrTeacher = approverId && approverId !== 'Self' ? getTeacherById(approverId) : null;
+        const hrName = hrTeacher ? `${hrTeacher.prefix || ''}${hrTeacher.name} ${hrTeacher.surname}` : 'ฝ่ายบุคคล';
+        notifyApprover(reqId, req, 'Director', hrName);
+      } else {
+        notifyTeacherStatusChange(req.teacher_id, newStatus, comments, req, approverRole);
+      }
+    } catch(e) { Logger.log('Notification failed (non-fatal): ' + e); }
     
     return { success: true };
     
