@@ -614,11 +614,12 @@ function renderHr() {
       </div>`;
   }
 
-  // Leave request button (tab 0 only, above bottom nav)
-  const reqBtn = _hrTab === 0 ? `
-    <div onclick="openLeaveForm()" style="position:fixed;bottom:66px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:398px;background:#2563eb;color:#fff;padding:14px;border-radius:14px;font-size:15px;font-weight:800;text-align:center;cursor:pointer;z-index:50;box-shadow:0 8px 24px rgba(37,99,235,.4);display:flex;align-items:center;justify-content:center;gap:8px">
-      ${svg('plus', 18, 2.5)} ขอลา
-    </div>` : '';
+  // FAB — ยื่นใบลา (same style as teacher role)
+  const reqBtn = `
+    <div onclick="openLeaveForm()" class="dc-hover dc-fab" style="position:fixed;bottom:70px;right:calc(50% - 199px);width:60px;height:60px;border-radius:50%;background:#2563eb;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(37,99,235,.45);cursor:pointer;z-index:50;gap:0">
+      ${svg('plus', 22, 2.5)}
+      <div style="font-size:9.5px;font-weight:700;letter-spacing:.02em">ขอลา</div>
+    </div>`;
 
   document.getElementById('view-hr').innerHTML = `
     <div style="width:100%;min-height:100vh;display:flex;justify-content:center;background:#f8fafc">

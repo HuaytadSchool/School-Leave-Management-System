@@ -135,9 +135,9 @@ function thaiDateBlock(id, value = '', cb = '') {
   const monOpts = ['<option value="">เดือน</option>', ...THAI_MONTHS_FULL.map((m, i) => `<option value="${i}" ${mon === i ? 'selected' : ''}>${m}</option>`)].join('');
   const yrOpts = ['<option value="">ปี</option>', ...years.map(y => `<option value="${y}" ${yr == y ? 'selected' : ''}>${y + 543}</option>`)].join('');
   return `<div style="display:grid;grid-template-columns:1fr 2fr 1.5fr;gap:4px">
-    <select id="${id}-d" onchange="syncThaiDate('${id}')" style="${sel}">${dayOpts}</select>
-    <select id="${id}-m" onchange="syncThaiDate('${id}')" style="${sel}">${monOpts}</select>
-    <select id="${id}-y" onchange="syncThaiDate('${id}')" style="${sel}">${yrOpts}</select>
+    <select id="${id}-d" onchange="syncThaiDateFilter('${id}')" style="${sel}">${dayOpts}</select>
+    <select id="${id}-m" onchange="syncThaiDateFilter('${id}')" style="${sel}">${monOpts}</select>
+    <select id="${id}-y" onchange="syncThaiDateFilter('${id}')" style="${sel}">${yrOpts}</select>
     <input type="hidden" id="${id}" value="${value}" data-cb="${esc(cb)}"/>
   </div>`;
 }
@@ -147,6 +147,17 @@ window.syncThaiDate = function (id) {
   const y = document.getElementById(id + '-y').value;
   const hid = document.getElementById(id);
   hid.value = (d && m !== '' && y) ? toISO(Number(y), Number(m), Number(d)) : '';
+  const cb = hid.dataset.cb;
+  if (cb) new Function(cb)();
+};
+// only fires when all 3 selects are filled — prevents re-render from wiping partial selections
+window.syncThaiDateFilter = function(id) {
+  const d = document.getElementById(id + '-d').value;
+  const m = document.getElementById(id + '-m').value;
+  const y = document.getElementById(id + '-y').value;
+  if (!d || m === '' || !y) return;
+  const hid = document.getElementById(id);
+  hid.value = toISO(Number(y), Number(m), Number(d));
   const cb = hid.dataset.cb;
   if (cb) new Function(cb)();
 };
