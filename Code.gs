@@ -76,7 +76,8 @@ function doPost(e) {
       'saveHoliday',
       'deleteHoliday',
       'yearlyReset',
-      'getSignatories'
+      'getSignatories',
+      'uploadProfilePhoto'
     ];
     
     if (allowedActions.includes(action) && typeof this[action] === 'function') {
@@ -886,6 +887,24 @@ function formatISODate(d) {
 // -------------------------
 // Upload Utils
 // -------------------------
+
+// Upload teacher profile photo to a specific Drive folder.
+// args: (userId, base64JPEG, folderId) -> { fileId }
+function uploadProfilePhoto(userId, base64JPEG, folderId) {
+  if (!userId || !base64JPEG || !folderId) throw new Error("uploadProfilePhoto: missing args");
+  var folder = DriveApp.getFolderById(folderId);
+  var filename = 'photo_' + userId;
+  // Remove previous photo for this user
+  var existing = folder.getFilesByName(filename);
+  while (existing.hasNext()) existing.next().setTrashed(true);
+  // Create new file
+  var bytes = Utilities.base64Decode(base64JPEG);
+  var blob = Utilities.newBlob(bytes, 'image/jpeg', filename);
+  var file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return { fileId: file.getId() };
+}
+
 function uploadFileToDrive(base64, filename) {
   try {
     const folder = DriveApp.getFolderById(CONFIG.DRIVE_FOLDER_ID);
