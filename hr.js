@@ -184,16 +184,20 @@ function renderHr() {
     const statLabels = ['ลาวันนี้', 'รออนุมัติ', 'อนุมัติแล้ว (เดือนนี้)', 'ปฏิเสธ / ยกเลิก'];
 
     const statGrid = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
         ${STAT_CARDS.map((c, i) => `
-          <div ${c.onclick ? `onclick="${c.onclick}"` : ''} style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(15,23,42,.06);${c.onclick ? 'cursor:pointer' : ''}">
-            <div style="width:44px;height:44px;border-radius:50%;background:${c.bg};display:flex;align-items:center;justify-content:center;margin-bottom:10px">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${c.iconColor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${c.iconPath}</svg>
+          <div ${c.onclick ? `onclick="${c.onclick}"` : ''} style="background:#fff;border-radius:14px;padding:12px;box-shadow:0 2px 10px rgba(15,23,42,.06);display:flex;align-items:center;gap:10px;${c.onclick ? 'cursor:pointer' : ''}">
+            <div style="width:36px;height:36px;border-radius:50%;background:${c.bg};display:flex;align-items:center;justify-content:center;flex:none">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${c.iconColor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${c.iconPath}</svg>
             </div>
-            <div style="font-size:28px;font-weight:800;color:${c.iconColor};line-height:1">${c.value}</div>
-            <div style="font-size:11px;color:#64748b;margin-top:1px">${c.unit}</div>
-            <div style="font-size:10.5px;color:#94a3b8;margin-top:5px">${statLabels[i]}</div>
-            <div style="font-size:10px;color:#b0bec5;margin-top:2px">${c.sub}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:11px;font-weight:700;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${statLabels[i]}</div>
+              <div style="display:flex;align-items:baseline;gap:3px;margin-top:1px">
+                <span style="font-size:22px;font-weight:800;color:${c.iconColor};line-height:1">${c.value}</span>
+                <span style="font-size:10.5px;color:#64748b">${c.unit}</span>
+              </div>
+              <div style="font-size:10px;color:#b0bec5;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.sub}</div>
+            </div>
           </div>`).join('')}
       </div>`;
 
@@ -452,17 +456,14 @@ function renderHr() {
     mainContent = `
       <div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(15,23,42,.06);margin-bottom:12px">
         <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px">เลือกช่วงวันที่</div>
-        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
           <div>
             <div style="font-size:10.5px;color:#94a3b8;margin-bottom:4px">เริ่มต้น</div>
-            <input type="date" value="${hrFilters.dateFrom}" onchange="setHrFilter('dateFrom',this.value)"
-              style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box">
+            ${thaiDateBlock('hf-from', hrFilters.dateFrom, "setHrFilter('dateFrom',document.getElementById('hf-from').value)")}
           </div>
-          <div style="font-size:12px;color:#94a3b8;padding-bottom:10px">ถึง</div>
           <div>
             <div style="font-size:10.5px;color:#94a3b8;margin-bottom:4px">สิ้นสุด</div>
-            <input type="date" value="${hrFilters.dateTo}" onchange="setHrFilter('dateTo',this.value)"
-              style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box">
+            ${thaiDateBlock('hf-to', hrFilters.dateTo, "setHrFilter('dateTo',document.getElementById('hf-to').value)")}
           </div>
         </div>
         <select onchange="setHrFilter('type',this.value)" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12.5px">${typeOpts}</select>

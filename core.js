@@ -121,6 +121,26 @@ function thaiDate(id, value = '', cb = '') {
     <input type="hidden" id="${id}" value="${value}" data-cb="${esc(cb)}"/>
   </span>`;
 }
+function thaiDateBlock(id, value = '', cb = '') {
+  const d = value ? parseISO(value) : null;
+  const day = d ? d.getDate() : '';
+  const mon = d ? d.getMonth() : '';
+  const yr = d ? d.getFullYear() : '';
+  const now = new Date().getFullYear();
+  const years = [];
+  for (let y = now - 5; y <= now + 3; y++) years.push(y);
+  if (yr && !years.includes(yr)) { years.push(yr); years.sort((a, b) => a - b); }
+  const sel = 'width:100%;padding:8px 4px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;color:#0f172a;background:#fff;box-sizing:border-box';
+  const dayOpts = ['<option value="">วัน</option>', ...Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${day == i + 1 ? 'selected' : ''}>${i + 1}</option>`)].join('');
+  const monOpts = ['<option value="">เดือน</option>', ...THAI_MONTHS_FULL.map((m, i) => `<option value="${i}" ${mon === i ? 'selected' : ''}>${m}</option>`)].join('');
+  const yrOpts = ['<option value="">ปี</option>', ...years.map(y => `<option value="${y}" ${yr == y ? 'selected' : ''}>${y + 543}</option>`)].join('');
+  return `<div style="display:grid;grid-template-columns:1fr 2fr 1.5fr;gap:4px">
+    <select id="${id}-d" onchange="syncThaiDate('${id}')" style="${sel}">${dayOpts}</select>
+    <select id="${id}-m" onchange="syncThaiDate('${id}')" style="${sel}">${monOpts}</select>
+    <select id="${id}-y" onchange="syncThaiDate('${id}')" style="${sel}">${yrOpts}</select>
+    <input type="hidden" id="${id}" value="${value}" data-cb="${esc(cb)}"/>
+  </div>`;
+}
 window.syncThaiDate = function (id) {
   const d = document.getElementById(id + '-d').value;
   const m = document.getElementById(id + '-m').value;
