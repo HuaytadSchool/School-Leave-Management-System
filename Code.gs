@@ -13,7 +13,7 @@ function doGet(e) {
   // Simple ping endpoint
   return ContentService.createTextOutput(JSON.stringify({
     status: "API is active",
-    version: "3.0 (Flex Message + Fiscal Year)"
+    version: "3.1 (Flex dot fix)"
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -987,7 +987,8 @@ function _statRow(label, value, valueColor) {
 }
 
 function _dot(color) {
-  return { "type": "box", "layout": "vertical", "width": "10px", "height": "10px", "cornerRadius": "5px", "backgroundColor": color };
+  // LINE requires a box to have contents; filler keeps it an empty colored dot.
+  return { "type": "box", "layout": "vertical", "width": "10px", "height": "10px", "cornerRadius": "5px", "backgroundColor": color, "contents": [{ "type": "filler" }] };
 }
 
 function notifyApprover(reqId, reqData, targetRole, reviewerName) {
@@ -1270,9 +1271,15 @@ function sendLineMessage(to, messages) {
     'payload': JSON.stringify({
       'to': to,
       'messages': messages
-    })
+    }),
+    'muteHttpExceptions': true
   };
-  UrlFetchApp.fetch(url, options);
+  const res = UrlFetchApp.fetch(url, options);
+  const code = res.getResponseCode();
+  if (code !== 200) {
+    Logger.log('LINE push failed (' + code + '): ' + res.getContentText());
+  }
+  return code;
 }
 
 // -------------------------
