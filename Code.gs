@@ -838,6 +838,15 @@ function yearlyReset() {
   return { success: true, resetRows: data.length - 1 };
 }
 
+function currentFiscalYear() {
+  const d = new Date(), ty = d.getFullYear() + 543;
+  return d.getMonth() >= 9 ? ty + 1 : ty;
+}
+function fiscalYearRange(ty) {
+  const ce = ty - 543;
+  return { start: `${ce - 1}-10-01`, end: `${ce}-09-30` };
+}
+
 // Adjust a teacher's quota counters by deltas: { pending, used, remaining }
 function applyQuotaDelta(teacherId, leaveTypeId, delta) {
   const ss = getSpreadsheet();
@@ -932,6 +941,55 @@ function formatThaiDate(isoDate) {
   return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear() + 543}`;
 }
 
+function getLineProfilePicUrl(lineUserId) {
+  if (!lineUserId || CONFIG.LINE_CHANNEL_ACCESS_TOKEN.includes("YOUR_")) return '';
+  try {
+    const res = UrlFetchApp.fetch(`https://api.line.me/v2/profile/${lineUserId}`, {
+      headers: { 'Authorization': `Bearer ${CONFIG.LINE_CHANNEL_ACCESS_TOKEN}` },
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() === 200) return JSON.parse(res.getContentText()).pictureUrl || '';
+  } catch(e) {}
+  return '';
+}
+
+function formatThaiDateTime(isoStr) {
+  if (!isoStr) return '-';
+  const M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  try {
+    const d = new Date(isoStr);
+    const day  = Utilities.formatDate(d, 'Asia/Bangkok', 'd');
+    const mon  = Utilities.formatDate(d, 'Asia/Bangkok', 'M');
+    const yr   = Utilities.formatDate(d, 'Asia/Bangkok', 'yyyy');
+    const time = Utilities.formatDate(d, 'Asia/Bangkok', 'HH:mm');
+    return `${day} ${M[parseInt(mon)-1]} ${parseInt(yr)+543} ${time} น.`;
+  } catch(e) { return '-'; }
+}
+
+function _infoRow(label, value) {
+  return {
+    "type": "box", "layout": "baseline", "spacing": "sm",
+    "contents": [
+      { "type": "text", "text": label, "size": "sm", "color": "#888888", "flex": 3 },
+      { "type": "text", "text": String(value || '-'), "size": "sm", "flex": 5, "wrap": true }
+    ]
+  };
+}
+
+function _statRow(label, value, valueColor) {
+  return {
+    "type": "box", "layout": "baseline",
+    "contents": [
+      { "type": "text", "text": label, "flex": 4, "size": "sm", "color": "#555555" },
+      { "type": "text", "text": String(value), "flex": 6, "align": "end", "color": valueColor || "#333333", "weight": "bold", "size": "sm" }
+    ]
+  };
+}
+
+function _dot(color) {
+  return { "type": "box", "layout": "vertical", "width": "10px", "height": "10px", "cornerRadius": "5px", "backgroundColor": color };
+}
+
 function notifyApprover(reqId, reqData, targetRole, reviewerName) {
   if (!CONFIG.LINE_CHANNEL_ACCESS_TOKEN || CONFIG.LINE_CHANNEL_ACCESS_TOKEN.includes("YOUR_")) return;
 
@@ -948,80 +1006,175 @@ function notifyApprover(reqId, reqData, targetRole, reviewerName) {
   const leaveType = types.find(t => t.id == reqData.leave_type_id);
   const typeName = leaveType ? leaveType.name : reqData.leave_type_id;
 
+  const quotas = getLeaveQuotas(reqData.teacher_id);
+  const thisTypeQuota = quotas.find(q => String(q.leave_type_id) === String(reqData.leave_type_id));
+  const totalUsedAll = quotas.reduce((sum, q) => sum + Number(q.used_days || 0), 0);
+
+  const fiscalYear = currentFiscalYear();
+  const { start: fyStart, end: fyEnd } = fiscalYearRange(fiscalYear);
+  const rqSheet = ss.getSheetByName('LeaveRequests');
+  const rqData = rqSheet.getDataRange().getValues();
+  const rqHeaders = rqData[0];
+  let leaveCountThisType = 0;
+  for (let i = 1; i < rqData.length; i++) {
+    const row = arrayToObject(rqHeaders, rqData[i]);
+    if (String(row.teacher_id) !== String(reqData.teacher_id)) continue;
+    if (String(row.leave_type_id) !== String(reqData.leave_type_id)) continue;
+    if (row.status === 'Cancelled' || row.status === 'Rejected') continue;
+    const ds = row.start_date instanceof Date
+      ? Utilities.formatDate(row.start_date, 'Asia/Bangkok', 'yyyy-MM-dd')
+      : String(row.start_date).slice(0, 10);
+    if (ds >= fyStart && ds <= fyEnd) leaveCountThisType++;
+  }
+
   const startThai = formatThaiDate(reqData.start_date);
   const endThai   = formatThaiDate(reqData.end_date);
   const dateText  = startThai === endThai ? startThai : `${startThai} - ${endThai}`;
   const teacherFullName = `${teacher.prefix || ''}${teacher.name} ${teacher.surname}`;
+  const positionText = [teacher.position, teacher.department].filter(Boolean).join(' • ');
+  const createdAtText = formatThaiDateTime(reqData.created_at);
+  const teacherPhotoUrl = getLineProfilePicUrl(teacher.line_user_id);
 
   const approvers = teachers.filter(t => t.role === targetRole && t.line_user_id && t.status === 'Active');
 
   approvers.forEach(sup => {
     const isDir = targetRole === 'Director';
-    const headerText    = isDir ? 'ใบลาตรวจสอบแล้ว รออนุมัติ' : 'มีคำขออนุมัติการลาใหม่';
-    const subHeaderText = isDir ? `เรียน ${sup.prefix || ''}${sup.name} ${sup.surname}` : 'โรงเรียนบ้านห้วยตาด';
-    const headerBg      = isDir ? '#F2A900' : '#2563eb';
-    const altText       = isDir ? `ใบลาของ ${teacherFullName} รอการอนุมัติ` : `มีคำขอลาจาก ${teacherFullName}`;
+    const headerBg = isDir ? '#F2A900' : '#2563EB';
+    const altText  = isDir ? `ใบลาของ ${teacherFullName} รอการอนุมัติ` : `มีคำขอลาจาก ${teacherFullName}`;
 
-    const bodyContents = [
-      {
-        "type": "box", "layout": "vertical", "margin": "sm",
-        "contents": [
-          { "type": "text", "text": "ผู้ขอลา", "color": "#aaaaaa", "size": "sm" },
-          { "type": "text", "text": teacherFullName, "weight": "bold", "size": "md", "color": "#333333" }
-        ]
-      },
-      {
-        "type": "box", "layout": "vertical", "margin": "md",
-        "contents": [
-          { "type": "text", "text": `ประเภท: ${typeName}`, "size": "sm", "color": "#666666" },
-          { "type": "text", "text": `วันที่: ${dateText} (${reqData.total_days} วัน)`, "size": "sm", "color": "#666666" }
-        ]
-      },
-      { "type": "separator", "margin": "xl" },
-      {
-        "type": "box", "layout": "vertical", "margin": "md",
-        "contents": [
-          { "type": "text", "text": "เหตุผลการลา:", "color": "#aaaaaa", "size": "xs" },
-          { "type": "text", "text": String(reqData.reason || '-'), "wrap": true, "color": "#333333", "size": "sm", "margin": "sm" }
-        ]
-      }
-    ];
+    // Avatar: LINE photo or initials box
+    const avatarBox = teacherPhotoUrl
+      ? { "type": "image", "url": teacherPhotoUrl, "size": "70px", "aspectMode": "cover", "aspectRatio": "1:1", "cornerRadius": "35px" }
+      : { "type": "box", "layout": "vertical", "width": "70px", "height": "70px", "cornerRadius": "35px",
+          "backgroundColor": "#2563EB", "justifyContent": "center", "alignItems": "center",
+          "contents": [{ "type": "text", "text": (teacher.name || '?')[0], "color": "#FFFFFF", "weight": "bold", "size": "xl", "align": "center", "gravity": "center" }] };
 
-    if (isDir && reviewerName) {
-      bodyContents.push({ "type": "separator", "margin": "xl" });
-      bodyContents.push({
-        "type": "box", "layout": "vertical", "margin": "md",
+    // Build body sections
+    const body = [];
+
+    // ── Teacher info ──
+    body.push({
+      "type": "box", "layout": "horizontal", "spacing": "md",
+      "contents": [
+        avatarBox,
+        { "type": "box", "layout": "vertical", "contents": [
+          { "type": "text", "text": teacherFullName, "weight": "bold", "size": "lg" },
+          { "type": "text", "text": positionText || '-', "size": "sm", "color": "#888888", "wrap": true },
+          { "type": "box", "layout": "horizontal", "margin": "md", "alignItems": "center", "spacing": "sm",
+            "contents": [
+              _dot("#F97316"),
+              { "type": "text", "text": "รออนุมัติ", "weight": "bold", "size": "sm", "color": "#F97316" }
+            ]}
+        ]}
+      ]
+    });
+
+    body.push({ "type": "separator" });
+
+    // ── Leave details ──
+    body.push({
+      "type": "box", "layout": "vertical", "spacing": "sm",
+      "contents": [
+        { "type": "text", "text": "รายละเอียดการลา", "weight": "bold", "size": "md" },
+        _infoRow("ประเภท", typeName),
+        _infoRow("วันที่", `${dateText}  (${reqData.total_days} วัน)`),
+        _infoRow("ยื่นเมื่อ", createdAtText)
+      ]
+    });
+
+    body.push({ "type": "separator" });
+
+    // ── Reason ──
+    body.push({
+      "type": "box", "layout": "vertical", "spacing": "sm",
+      "contents": [
+        { "type": "text", "text": "เหตุผลการลา", "weight": "bold" },
+        { "type": "text", "text": String(reqData.reason || '-'), "wrap": true, "color": "#444444" }
+      ]
+    });
+
+    // ── Attachment (conditional) ──
+    if (reqData.attachment_url) {
+      body.push({ "type": "separator" });
+      body.push({
+        "type": "box", "layout": "vertical", "spacing": "sm",
         "contents": [
-          { "type": "text", "text": "ผู้ตรวจสอบขั้นต้น:", "color": "#aaaaaa", "size": "xs" },
-          { "type": "text", "text": `${reviewerName} (ตรวจสอบสิทธิ์แล้ว)`, "color": "#06C755", "size": "xs", "weight": "bold", "margin": "sm" }
+          { "type": "text", "text": "เอกสารแนบ", "weight": "bold" },
+          { "type": "button", "style": "link",
+            "action": { "type": "uri", "label": "เปิดเอกสารแนบ", "uri": reqData.attachment_url } }
         ]
       });
     }
 
+    // ── Statistics box ──
+    const statsContents = [
+      { "type": "text", "text": `สถิติการลา ปีงบประมาณ ${fiscalYear}`, "weight": "bold", "size": "md" }
+    ];
+    if (thisTypeQuota) {
+      statsContents.push(_statRow(typeName, `ใช้ ${thisTypeQuota.used_days} / ${thisTypeQuota.total_quota} วัน`, "#F97316"));
+      statsContents.push(_statRow("คงเหลือ", `${thisTypeQuota.remaining_days} วัน`, Number(thisTypeQuota.remaining_days) < 0 ? "#EF4444" : "#22C55E"));
+      statsContents.push(_statRow("จำนวนครั้ง", `${leaveCountThisType} ครั้ง`, "#333333"));
+    }
+    statsContents.push(_statRow("ลารวมทุกประเภท", `${totalUsedAll} วัน`, "#2563EB"));
+
+    body.push({ "type": "separator" });
+    body.push({
+      "type": "box", "layout": "vertical", "backgroundColor": "#F8FAFC",
+      "cornerRadius": "10px", "paddingAll": "14px", "spacing": "md",
+      "contents": statsContents
+    });
+
+    // ── Approval flow (Director only) ──
+    if (isDir) {
+      const hrLabel = reviewerName || 'ฝ่ายบุคคล';
+      const dirLabel = `${sup.prefix || ''}${sup.name} ${sup.surname}`;
+      body.push({ "type": "separator" });
+      body.push({
+        "type": "box", "layout": "vertical", "spacing": "md",
+        "contents": [
+          { "type": "text", "text": "ลำดับการอนุมัติ", "weight": "bold", "size": "md" },
+          { "type": "box", "layout": "horizontal", "alignItems": "center", "spacing": "sm",
+            "contents": [ _dot("#16A34A"), { "type": "text", "text": hrLabel, "weight": "bold", "color": "#16A34A" } ] },
+          { "type": "text", "text": "ตรวจสอบแล้ว", "size": "sm", "color": "#666666" },
+          { "type": "text", "text": "↓", "align": "center", "color": "#94A3B8" },
+          { "type": "box", "layout": "horizontal", "alignItems": "center", "spacing": "sm",
+            "contents": [ _dot("#F97316"), { "type": "text", "text": dirLabel, "weight": "bold", "color": "#F97316" } ] },
+          { "type": "text", "text": "รออนุมัติ", "size": "sm", "color": "#666666" }
+        ]
+      });
+    }
+
+    // ── Note box ──
+    body.push({ "type": "separator" });
+    body.push({
+      "type": "box", "layout": "vertical", "backgroundColor": "#FFF8E8",
+      "cornerRadius": "10px", "paddingAll": "12px",
+      "contents": [
+        { "type": "text", "text": "หมายเหตุ", "weight": "bold" },
+        { "type": "text", "text": "โปรดตรวจสอบข้อมูลให้ครบถ้วนก่อนกดอนุมัติ", "wrap": true, "size": "sm", "color": "#666666" }
+      ]
+    });
+
     const flex = {
-      "type": "flex",
-      "altText": altText,
+      "type": "flex", "altText": altText,
       "contents": {
         "type": "bubble", "size": "mega",
         "header": {
-          "type": "box", "layout": "vertical", "backgroundColor": headerBg, "paddingAll": "20px",
+          "type": "box", "layout": "vertical", "backgroundColor": headerBg, "paddingAll": "18px",
           "contents": [
-            { "type": "text", "text": headerText, "weight": "bold", "color": "#FFFFFF", "size": "lg" },
-            { "type": "text", "text": subHeaderText, "color": "#FFFFFF99", "size": "sm", "margin": "md" }
+            { "type": "text", "text": "คำขออนุมัติการลา", "weight": "bold", "size": "xl", "color": "#FFFFFF" },
+            { "type": "text", "text": isDir ? `เรียน ${sup.prefix || ''}${sup.name} ${sup.surname}` : "โรงเรียนบ้านห้วยตาด",
+              "margin": "sm", "size": "sm", "color": isDir ? "#FFF3CC" : "#DCEBFF" }
           ]
         },
-        "body": { "type": "box", "layout": "vertical", "contents": bodyContents },
+        "body": { "type": "box", "layout": "vertical", "spacing": "lg", "contents": body },
         "footer": {
-          "type": "box", "layout": "horizontal", "spacing": "sm",
+          "type": "box", "layout": "vertical", "spacing": "md",
           "contents": [
-            {
-              "type": "button", "style": "primary", "color": "#06C755",
-              "action": { "type": "postback", "label": "อนุมัติ", "data": `action=approve&reqId=${reqId}`, "displayText": "อนุมัติการลา" }
-            },
-            {
-              "type": "button", "style": "secondary",
-              "action": { "type": "postback", "label": "ไม่อนุมัติ", "data": `action=reject&reqId=${reqId}`, "displayText": "ไม่อนุมัติการลา" }
-            }
+            { "type": "button", "style": "primary", "color": "#22C55E",
+              "action": { "type": "postback", "label": "อนุมัติ", "data": `action=approve&reqId=${reqId}`, "displayText": "อนุมัติการลา" } },
+            { "type": "button", "style": "secondary",
+              "action": { "type": "postback", "label": "ไม่อนุมัติ", "data": `action=reject&reqId=${reqId}`, "displayText": "ไม่อนุมัติการลา" } }
           ]
         }
       }

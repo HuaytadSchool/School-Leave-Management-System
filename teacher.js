@@ -121,14 +121,14 @@ window.openNotifications = () => {
     </div>`;
 };
 
-// ── Academic year helpers ──
+// ── Fiscal year helpers (Oct 1 – Sep 30) ──
 function currentAcadYear() {
   const d = new Date(), ty = d.getFullYear() + 543;
-  return (d.getMonth() + 1) >= 5 ? ty : ty - 1;
+  return d.getMonth() >= 9 ? ty + 1 : ty;
 }
 function acadYearRange(ty) {
   const ce = ty - 543;
-  return { start: `${ce}-05-01`, end: `${ce + 1}-04-30` };
+  return { start: `${ce - 1}-10-01`, end: `${ce}-09-30` };
 }
 
 // ── Calendar tab ──
@@ -263,7 +263,7 @@ window.statsSetYear = () => {
   document.getElementById('modal-root').innerHTML = `
     <div onclick="closeModal()" style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:500">
       <div onclick="event.stopPropagation()" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:220px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2)">
-        <div style="padding:14px 16px;font-size:14px;font-weight:800;border-bottom:1px solid #f1f5f9">เลือกปีการศึกษา</div>
+        <div style="padding:14px 16px;font-size:14px;font-weight:800;border-bottom:1px solid #f1f5f9">เลือกปีงบประมาณ</div>
         ${[curr,curr-1,curr-2].map(y => `<div onclick="statsSelectYear(${y})" style="padding:12px 16px;font-size:14px;cursor:pointer;font-weight:${y===_statsAcadYear?800:400};color:${y===_statsAcadYear?'#2563eb':'#334155'};border-bottom:1px solid #f8fafc">${y}</div>`).join('')}
       </div>
     </div>`;
@@ -359,7 +359,7 @@ window.renderStatsTab = () => {
           <div style="font-size:11.5px;color:#94a3b8;margin-top:2px">ภาพรวมการลาทั้งหมดของคุณ</div>
         </div>
         <div onclick="statsSetYear()" style="display:flex;align-items:center;gap:5px;border:1.5px solid #e2e8f0;border-radius:10px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:700;color:#334155">
-          ${svg('calendar',13)} ปีการศึกษา ${_statsAcadYear} ${svg('chevronDown',13)}
+          ${svg('calendar',13)} ปีงบประมาณ ${_statsAcadYear} ${svg('chevronDown',13)}
         </div>
       </div>
 
@@ -423,7 +423,7 @@ window.renderStatsTab = () => {
           <div>
             <div style="font-size:11px;color:#64748b">สิทธิ์ลาทั้งหมด</div>
             <div style="font-size:28px;font-weight:800;line-height:1.1">${totalQuota} <span style="font-size:13px;font-weight:500;color:#64748b">วัน</span></div>
-            <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">ต่อปีการศึกษา</div>
+            <div style="font-size:10.5px;color:#94a3b8;margin-top:2px">ต่อปีงบประมาณ</div>
           </div>
           <div style="width:42px;height:42px;border-radius:12px;background:#eff6ff;display:flex;align-items:center;justify-content:center">
             ${svg('calendar',20)}
