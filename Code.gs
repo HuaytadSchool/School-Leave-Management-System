@@ -13,7 +13,7 @@ function doGet(e) {
   // Simple ping endpoint
   return ContentService.createTextOutput(JSON.stringify({
     status: "API is active",
-    version: "3.2 (photo via payload, no blocking fetch)"
+    version: "3.3 (round avatar box fix)"
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -1033,9 +1033,12 @@ function notifyApprover(reqId, reqData, targetRole, reviewerName) {
     const headerBg = isDir ? '#F2A900' : '#2563EB';
     const altText  = isDir ? `ใบลาของ ${teacherFullName} รอการอนุมัติ` : `มีคำขอลาจาก ${teacherFullName}`;
 
-    // Avatar: LINE photo or initials box
-    const avatarBox = teacherPhotoUrl
-      ? { "type": "image", "url": teacherPhotoUrl, "size": "70px", "aspectMode": "cover", "aspectRatio": "1:1", "cornerRadius": "35px" }
+    // Avatar: round photo (image wrapped in a box for cornerRadius clipping —
+    // cornerRadius is not a valid property on `image` itself) or initials box.
+    const validPhoto = /^https:\/\//.test(teacherPhotoUrl) ? teacherPhotoUrl : '';
+    const avatarBox = validPhoto
+      ? { "type": "box", "layout": "vertical", "width": "70px", "height": "70px", "cornerRadius": "35px",
+          "contents": [{ "type": "image", "url": validPhoto, "size": "full", "aspectMode": "cover", "aspectRatio": "1:1" }] }
       : { "type": "box", "layout": "vertical", "width": "70px", "height": "70px", "cornerRadius": "35px",
           "backgroundColor": "#2563EB", "justifyContent": "center", "alignItems": "center",
           "contents": [{ "type": "text", "text": (teacher.name || '?')[0], "color": "#FFFFFF", "weight": "bold", "size": "xl", "align": "center", "gravity": "center" }] };
