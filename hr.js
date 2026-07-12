@@ -360,6 +360,7 @@ function renderHr() {
     if (hrFilters.dateTo)   rows = rows.filter(r => normDate(r.start_date) <= hrFilters.dateTo);
     if (hrFilters.dept !== 'all') rows = rows.filter(r => r.department === hrFilters.dept);
     if (hrFilters.type !== 'all') rows = rows.filter(r => r.leave_type_id == hrFilters.type);
+    rows.sort((a, b) => normDate(b.start_date).localeCompare(normDate(a.start_date)));
 
     const uniqueTeachers = new Set(rows.map(r => r.teacher_id)).size;
     const totalDays = rows.reduce((sum, r) => sum + (Number(r.total_days) || 0), 0);
@@ -383,7 +384,7 @@ function renderHr() {
         }).join(',')
       : '#e2e8f0 0deg 360deg';
 
-    // Per-person
+    // Per-person aggregate
     const personAgg = {};
     rows.forEach(r => {
       if (!personAgg[r.teacher_id]) personAgg[r.teacher_id] = { id: r.teacher_id, name: r.teacher_name, dept: r.department, position: r.position, count: 0, days: 0 };
@@ -393,7 +394,7 @@ function renderHr() {
     const persons = Object.values(personAgg).sort((a, b) => b.days - a.days);
 
     const typeOpts = ['all', ...leaveTypes.map(t => t.id)]
-      .map(id => `<option value="${esc(id)}" ${hrFilters.type === id ? 'selected' : ''}>${id === 'all' ? 'ทุกประเภทการลา' : esc(typeName(id))}</option>`).join('');
+      .map(id => `<option value="${esc(id)}" ${hrFilters.type == id ? 'selected' : ''}>${id === 'all' ? 'ทุกประเภทการลา' : esc(typeName(id))}</option>`).join('');
 
     const dateLabel = (hrFilters.dateFrom || hrFilters.dateTo)
       ? `${hrFilters.dateFrom ? fmtShort(hrFilters.dateFrom) : '...'} - ${hrFilters.dateTo ? fmtShort(hrFilters.dateTo) : '...'}`
@@ -428,15 +429,46 @@ function renderHr() {
         </div>
       </div>`).join('');
 
+    // Individual record list with print button for approved
+    const recordList = rows.map(r => {
+      const sm = statusMeta(r.status);
+      const from = normDate(r.start_date), to = normDate(r.end_date);
+      const range = from === to ? fmtShort(from) : `${fmtShort(from)} - ${fmtShort(to)}`;
+      const printBtn = r.status === 'Approved'
+        ? `<div onclick="printLeaveFormHr('${esc(r.id)}')" class="dc-hover" title="ออกใบลา" style="cursor:pointer;width:32px;height:32px;border-radius:8px;border:1px solid #2563eb;display:flex;align-items:center;justify-content:center;color:#2563eb;flex:none">${svg('download', 14)}</div>`
+        : `<div style="width:32px;height:32px;flex:none"></div>`;
+      return `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9">
+          <div style="width:36px;height:36px;border-radius:50%;background:${avatarColor(r.teacher_id)};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff;flex:none">${initials(r.teacher_name)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.teacher_name)}</div>
+            <div style="font-size:11px;color:${r.color_code || '#64748b'};font-weight:600">${esc(r.type_name)} · ${range} (${r.total_days} วัน)</div>
+          </div>
+          <span style="font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px;background:${sm.bg};color:${sm.color};white-space:nowrap;flex:none">${sm.label}</span>
+          ${printBtn}
+        </div>`;
+    }).join('');
+
     mainContent = `
       <div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(15,23,42,.06);margin-bottom:12px">
         <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px">เลือกช่วงวันที่</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
-          ${thaiDate('hf-from', hrFilters.dateFrom, "setHrFilter('dateFrom', document.getElementById('hf-from').value)")}
-          <span style="font-size:12px;color:#94a3b8">ถึง</span>
-          ${thaiDate('hf-to', hrFilters.dateTo, "setHrFilter('dateTo', document.getElementById('hf-to').value)")}
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;margin-bottom:10px">
+          <div>
+            <div style="font-size:10.5px;color:#94a3b8;margin-bottom:4px">เริ่มต้น</div>
+            <input type="date" value="${hrFilters.dateFrom}" onchange="setHrFilter('dateFrom',this.value)"
+              style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box">
+          </div>
+          <div style="font-size:12px;color:#94a3b8;padding-bottom:10px">ถึง</div>
+          <div>
+            <div style="font-size:10.5px;color:#94a3b8;margin-bottom:4px">สิ้นสุด</div>
+            <input type="date" value="${hrFilters.dateTo}" onchange="setHrFilter('dateTo',this.value)"
+              style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;box-sizing:border-box">
+          </div>
         </div>
         <select onchange="setHrFilter('type',this.value)" style="width:100%;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12.5px">${typeOpts}</select>
+        ${(hrFilters.dateFrom || hrFilters.dateTo || hrFilters.type !== 'all')
+          ? `<div onclick="setHrFilter('dateFrom','');setHrFilter('dateTo','');setHrFilter('type','all')" style="margin-top:8px;text-align:center;font-size:11.5px;font-weight:600;color:#2563eb;cursor:pointer">ล้างตัวกรอง</div>`
+          : ''}
       </div>
 
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -480,9 +512,7 @@ function renderHr() {
       </div>
 
       <div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(15,23,42,.06);margin-bottom:12px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div style="font-size:13px;font-weight:800">สถิติการลาตามประเภท</div>
-        </div>
+        <div style="font-size:13px;font-weight:800;margin-bottom:12px">สถิติการลาตามประเภท</div>
         <div style="display:flex;gap:14px;align-items:center">
           <div style="position:relative;width:100px;height:100px;border-radius:50%;background:conic-gradient(${donutGrad});display:flex;align-items:center;justify-content:center;flex:none">
             <div style="width:66px;height:66px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center">
@@ -502,7 +532,7 @@ function renderHr() {
         </div>
       </div>
 
-      <div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(15,23,42,.06)">
+      <div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(15,23,42,.06);margin-bottom:12px">
         <div style="font-size:13px;font-weight:800;margin-bottom:2px">
           ${_hrReportView === 'person' ? 'รายงานการลารายบุคคล' : 'รายงานการลาตามประเภท'}
         </div>
@@ -510,6 +540,15 @@ function renderHr() {
         ${_hrReportView === 'person'
           ? (personList || '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:16px">ไม่พบข้อมูล</div>')
           : (typeList   || '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:16px">ไม่พบข้อมูล</div>')}
+      </div>
+
+      <div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(15,23,42,.06)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <div style="font-size:13px;font-weight:800">รายการทั้งหมด</div>
+          <div style="font-size:11px;color:#94a3b8">${svg('download',11)} = ออกใบลา</div>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:10px">${rows.length} รายการ · เรียงจากล่าสุด</div>
+        ${recordList || '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:16px">ไม่พบข้อมูล</div>'}
       </div>`;
 
   } else if (_hrTab === 3) {

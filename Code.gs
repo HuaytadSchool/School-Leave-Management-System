@@ -38,7 +38,7 @@ function doPost(e) {
             const approverLineId = events[i].source.userId;
             const approver = getTeacherByLineId(approverLineId);
             if (approver && (approver.role === 'HR' || approver.role === 'Director' || approver.role === 'Admin')) {
-              updateLeaveStatusAPI(reqId, action, 'อนุมัติผ่าน LINE', approver.id, approver.role);
+              updateLeaveStatusAPI(reqId, action, action === 'approve' ? 'อนุมัติผ่าน LINE' : 'ไม่อนุมัติผ่าน LINE', approver.id, approver.role);
             }
           }
         }
@@ -407,13 +407,14 @@ function submitLeaveRequest(data) {
     
     // Insert Request
     const reqId = "REQ" + new Date().getTime();
+    const createdAt = new Date().toISOString();
     reqSheet.appendRow([
-      reqId, data.teacher_id, data.leave_type_id, data.start_date, data.end_date, 
-      data.total_days, data.reason, attachmentUrl, 'Pending_HR', '', '', '', new Date().toISOString()
+      reqId, data.teacher_id, data.leave_type_id, data.start_date, data.end_date,
+      data.total_days, data.reason, attachmentUrl, 'Pending_HR', '', '', '', createdAt
     ]);
-    
+
     // Notification to HR (non-fatal: LINE errors must not block the submission)
-    try { notifyApprover(reqId, data, 'HR'); } catch(e) { Logger.log('HR notify failed: ' + e); }
+    try { notifyApprover(reqId, Object.assign({}, data, { created_at: createdAt }), 'HR'); } catch(e) { Logger.log('HR notify failed: ' + e); }
 
     return { success: true, reqId: reqId };
     
