@@ -252,27 +252,8 @@ function renderTeacher(quotas, history) {
         <!-- ── Tab: หน้าหลัก ── -->
         <div id="tt-home">
           <!-- Header -->
-          <div style="background:linear-gradient(160deg,#1e6fe6 0%,#1a55cd 50%,#1740b0 100%);padding:18px 16px 56px;position:relative;overflow:hidden;color:#fff">
-            <svg viewBox="0 0 430 100" preserveAspectRatio="none" style="position:absolute;bottom:0;left:0;width:100%;height:100px;pointer-events:none">
-              <path d="M0 68 L48 34 L98 54 L158 20 L218 48 L270 26 L330 50 L430 20 L430 100 L0 100Z" fill="rgba(255,255,255,0.07)"/>
-              <path d="M0 82 Q110 60 220 76 Q320 92 430 66 L430 100 L0 100Z" fill="rgba(255,255,255,0.1)"/>
-              <rect x="342" y="52" width="52" height="48" fill="rgba(255,255,255,0.11)" rx="2"/>
-              <rect x="354" y="40" width="28" height="16" fill="rgba(255,255,255,0.11)" rx="1"/>
-              <rect x="360" y="28" width="16" height="16" fill="rgba(255,255,255,0.11)" rx="1"/>
-              <line x1="368" y1="14" x2="368" y2="30" stroke="rgba(255,255,255,0.38)" stroke-width="1.5"/>
-              <polygon points="368,14 382,20 368,26" fill="rgba(255,255,255,0.48)"/>
-              <circle cx="368" cy="51" r="5" fill="none" stroke="rgba(255,255,255,0.42)" stroke-width="1.5"/>
-              <rect x="348" y="60" width="9" height="9" fill="rgba(255,255,255,0.17)" rx="1"/>
-              <rect x="363" y="60" width="9" height="9" fill="rgba(255,255,255,0.17)" rx="1"/>
-              <rect x="378" y="60" width="9" height="9" fill="rgba(255,255,255,0.17)" rx="1"/>
-              <path d="M26 100 L35 72 L44 100Z" fill="rgba(255,255,255,0.14)"/>
-              <path d="M54 100 L66 63 L78 100Z" fill="rgba(255,255,255,0.14)"/>
-              <path d="M10 100 L16 82 L22 100Z" fill="rgba(255,255,255,0.11)"/>
-              <ellipse cx="128" cy="22" rx="28" ry="9" fill="rgba(255,255,255,0.13)"/>
-              <ellipse cx="150" cy="16" rx="22" ry="8" fill="rgba(255,255,255,0.17)"/>
-              <ellipse cx="238" cy="14" rx="20" ry="7" fill="rgba(255,255,255,0.11)"/>
-              <ellipse cx="256" cy="10" rx="15" ry="6" fill="rgba(255,255,255,0.14)"/>
-            </svg>
+          <div style="background:url('https://img2.pic.in.th/BG_User.png') center/cover no-repeat;padding:18px 16px 56px;position:relative;overflow:hidden;color:#fff">
+            <div style="position:absolute;inset:0;background:rgba(15,40,100,0.35)"></div>
             <!-- Logout top-right -->
             <div style="display:flex;justify-content:flex-end;position:relative;z-index:2;margin-bottom:14px">
               <div onclick="logout()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;cursor:pointer">${svg('logout', 16)}</div>
