@@ -13,7 +13,7 @@ window.setTab = (role, idx) => {
 const NAV_BY_ROLE = {
   HR: [['chart', 'ภาพรวม'], ['checkCircle', 'รออนุมัติ'], ['list', 'รายงานการลา'], ['users', 'บุคลากร']],
   Director: [['checkCircle', 'รออนุมัติ'], ['calendar', 'ปฏิทินโรงเรียน']],
-  Admin: [['user', 'ผู้ใช้งาน'], ['folder', 'ประเภทการลา'], ['calendar', 'วันหยุด'], ['user', 'ผู้ลงนาม'], ['alert', 'อันตราย'], ['settings', 'ตั้งค่าระบบ']],
+  Admin: [['user', 'ผู้ใช้งาน'], ['folder', 'ประเภทการลา'], ['calendar', 'วันหยุด'], ['user', 'ผู้ลงนาม'], ['alert', 'อันตราย'], ['settings', 'ตั้งค่าระบบ'], ['list', 'ประวัติการใช้งาน']],
 };
 
 function sidebar(role, badges = {}) {
@@ -38,7 +38,7 @@ function sidebar(role, badges = {}) {
       </div>
       <div class="dc-navlabel" style="font-size:10px;font-weight:700;letter-spacing:.08em;color:#64748b;text-transform:uppercase;padding:0 4px;margin-bottom:8px">${esc(ROLE_META[role] ? ROLE_META[role].label : role)}</div>
       <div class="dc-nav" style="display:flex;flex-direction:column;gap:2px;margin-bottom:auto">${items}</div>
-      ${currentUser.id === 'ADMIN' ? '' : `<div onclick="openLeaveForm()" class="dc-hover dc-leavebtn" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;padding:10px;border-radius:9px;background:#2563eb;color:#fff;font-size:13px;font-weight:700;cursor:pointer">${svg('plus', 15)} ยื่นใบลาของฉัน</div>`}
+      ${currentUser.id === 'ADMIN' || currentUser.role === 'Director' ? '' : `<div onclick="openLeaveForm()" class="dc-hover dc-leavebtn" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;padding:10px;border-radius:9px;background:#2563eb;color:#fff;font-size:13px;font-weight:700;cursor:pointer">${svg('plus', 15)} ยื่นใบลาของฉัน</div>`}
       <div class="dc-sidefoot" style="border-top:1px solid #1e293b;margin-top:16px;padding-top:14px">
         <div class="dc-sidename" style="font-size:11px;color:#94a3b8;padding:0 4px 6px">${esc(currentUser.prefix || '')}${esc(currentUser.name)}</div>
         <div onclick="logout()" style="cursor:pointer;font-size:12px;font-weight:600;color:#f87171;padding:0 4px;display:flex;align-items:center;gap:6px">${svg('logout', 15)} ออกจากระบบ</div>

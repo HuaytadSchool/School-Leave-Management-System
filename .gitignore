@@ -1,0 +1,8 @@
+# Backend deployed separately via Google Apps Script editor; contains secrets (LINE token)
+Code.gs
+
+# Internal security audit — not for public repo
+GAP_ANALYSIS.md
+
+# Local agent/worktree state
+.claude/

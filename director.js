@@ -20,7 +20,7 @@ window.setDirTab = (t) => { _dirTab = t; renderDirector(); };
 // Shared approval card (mobile style)
 function approvalCard(r) {
   const from = normDate(r.start_date), to = normDate(r.end_date);
-  const range = from === to ? fmtThai(from) : `${fmtShort(from)} - ${fmtThai(to)}`;
+  const range = (from === to ? fmtThai(from) : `${fmtShort(from)} - ${fmtThai(to)}`) + (r.half_day ? ` (${halfDayLabel(r.half_day)})` : '');
   const submittedAt = r.created_at ? _dirFmtTime(r.created_at) : '';
   const attach = r.attachment_url
     ? `<a href="${esc(r.attachment_url)}" target="_blank" style="color:#2563eb;font-size:11px;display:inline-flex;align-items:center;gap:3px">${svg('paperclip', 11)} เอกสารแนบ</a>`
@@ -73,7 +73,6 @@ function renderDirector() {
   // SVG paths
   const BELL_PATH  = '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>';
   const HOME_PATH  = '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>';
-  const CAL_ADD    = '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/>';
   const MENU_PATH  = '<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>';
 
   const bellBtn = `
@@ -146,9 +145,9 @@ function renderDirector() {
     </div>` : '';
 
   // --- BOTTOM NAV ---
+  // Director submits leave through the district office, not this school system
   const navItems = [
     { label: 'หน้าแรก',  path: HOME_PATH,        action: 'setDirTab(0)', active: _dirTab === 0 },
-    { label: 'ขอลา',     path: CAL_ADD,           action: 'openLeaveForm()', active: false },
     { label: 'ปฏิทิน',  path: ICONS.calendar,    action: 'setDirTab(1)', active: _dirTab === 1 },
     { label: 'เมนูอื่นๆ', path: MENU_PATH,        action: 'setDirTab(2)', active: _dirTab === 2 },
   ];
@@ -216,9 +215,7 @@ function renderDirector() {
 
   } else {
     // ---- Tab 2: เมนูอื่นๆ ----
-    const MENU_ITEMS = [
-      { label: 'ยื่นใบลาของฉัน', icon: 'calendar', bg: '#eff6ff', color: '#2563eb', action: 'openLeaveForm()' },
-    ];
+    // No "submit leave" menu: director leave goes through the district office
     mainContent = `
       <div style="background:#fff;border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(15,23,42,.06);margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:14px">
@@ -228,14 +225,6 @@ function renderDirector() {
             <div style="font-size:12px;color:#64748b">${esc(ROLE_META[u.role] ? ROLE_META[u.role].label : u.role)}</div>
           </div>
         </div>
-      </div>
-      <div style="background:#fff;border-radius:16px;box-shadow:0 2px 10px rgba(15,23,42,.06);overflow:hidden;margin-bottom:12px">
-        ${MENU_ITEMS.map((m, i) => `
-          <div onclick="${m.action}" class="dc-hover" style="display:flex;align-items:center;gap:12px;padding:14px 16px;${i < MENU_ITEMS.length - 1 ? 'border-bottom:1px solid #f1f5f9;' : ''}cursor:pointer">
-            <div style="width:36px;height:36px;border-radius:10px;background:${m.bg};display:flex;align-items:center;justify-content:center;flex:none;color:${m.color}">${svg(m.icon, 16)}</div>
-            <div style="flex:1;font-size:13.5px;font-weight:600">${m.label}</div>
-            ${svg('chevronRight', 14)}
-          </div>`).join('')}
       </div>
       <div style="background:#fff;border-radius:16px;box-shadow:0 2px 10px rgba(15,23,42,.06);overflow:hidden">
         <div onclick="logout()" class="dc-hover" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer">
@@ -287,7 +276,8 @@ function renderCalendar(records, holidays) {
     const badge = names.length
       ? `<div style="font-size:8px;font-weight:800;margin-top:1px;display:flex;align-items:center;gap:1px">${names.length}${svg('user', 8, 2.5)}</div>`
       : '';
-    cells += `<div title="${esc(tip)}" style="aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;background:${bg};color:${color};border:${border}"><div style="font-weight:700">${d}</div>${badge}</div>`;
+    const click = (names.length || isHoliday) ? `onclick="showDayLeaves('${iso}')" ` : '';
+    cells += `<div ${click}title="${esc(tip)}" style="aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;background:${bg};color:${color};border:${border};${click ? 'cursor:pointer' : ''}"><div style="font-weight:700">${d}</div>${badge}</div>`;
   }
 
   return `
@@ -312,6 +302,33 @@ function _dirFmtTime(isoStr) {
   const d = new Date(isoStr);
   return `ยื่นเมื่อ ${fmtShort(toISO(d.getFullYear(), d.getMonth(), d.getDate()))} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} น.`;
 }
+
+window.showDayLeaves = (iso) => {
+  const rows = (_dirData.records || []).filter(r => isActive(r.status) && dateInRange(iso, r.start_date, r.end_date));
+  const holiday = (_dirData.holidays || []).find(h => normDate(h.date) === iso);
+  const holidayHtml = holiday
+    ? `<div style="background:#fee2e2;color:#b91c1c;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:10px;margin-bottom:10px">${esc(holiday.name)}</div>`
+    : '';
+  const listHtml = rows.length ? rows.map(r => {
+    const from = normDate(r.start_date), to = normDate(r.end_date);
+    const range = (from === to ? fmtShort(from) : `${fmtShort(from)} - ${fmtShort(to)}`) + (r.half_day ? ` (${halfDayLabel(r.half_day)})` : '');
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;background:#f8fafc;border-radius:10px;text-align:left">
+        <div style="width:34px;height:34px;border-radius:50%;background:${avatarColor(r.teacher_id)};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#fff;flex:none">${initials(r.teacher_name)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.teacher_name)}</div>
+          <div style="font-size:11px;color:#64748b">${range} (${r.total_days} วัน)</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:${r.color_code}22;color:${r.color_code};white-space:nowrap">${esc(r.type_name)}</span>
+      </div>`;
+  }).join('') : (holiday ? '' : '<div style="font-size:12px;color:#94a3b8">ไม่มีผู้ลา</div>');
+  Swal.fire({
+    title: `<div style="font-size:16px;font-weight:800">${fmtThai(iso)}</div>`,
+    html: `${holidayHtml}<div style="display:flex;flex-direction:column;gap:7px;max-height:55vh;overflow-y:auto">${listHtml}</div>`,
+    confirmButtonText: 'ปิด',
+    confirmButtonColor: '#2563eb'
+  });
+};
 
 window.calMove = (delta) => {
   let { year, month } = calendarState;

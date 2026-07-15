@@ -301,7 +301,7 @@ function renderHr() {
 
     const pendingCards = filtered.map(r => {
       const from = normDate(r.start_date), to = normDate(r.end_date);
-      const range = from === to ? fmtThai(from) : `${fmtShort(from)} - ${fmtThai(to)}`;
+      const range = (from === to ? fmtThai(from) : `${fmtShort(from)} - ${fmtThai(to)}`) + (r.half_day ? ` (${halfDayLabel(r.half_day)})` : '');
       const submittedAt = r.created_at ? _hrFmtTime(r.created_at) : '';
       const attach = r.attachment_url ? `<a href="${esc(r.attachment_url)}" target="_blank" style="color:#2563eb;font-size:11px;display:inline-flex;align-items:center;gap:3px">${svg('paperclip', 11)} เอกสารแนบ</a>` : '';
       return `
@@ -437,7 +437,7 @@ function renderHr() {
     const recordList = rows.map(r => {
       const sm = statusMeta(r.status);
       const from = normDate(r.start_date), to = normDate(r.end_date);
-      const range = from === to ? fmtShort(from) : `${fmtShort(from)} - ${fmtShort(to)}`;
+      const range = (from === to ? fmtShort(from) : `${fmtShort(from)} - ${fmtShort(to)}`) + (r.half_day ? ` (${halfDayLabel(r.half_day)})` : '');
       const printBtn = r.status === 'Approved'
         ? `<div onclick="printLeaveFormHr('${esc(r.id)}')" class="dc-hover" title="ออกใบลา" style="cursor:pointer;width:32px;height:32px;border-radius:8px;border:1px solid #2563eb;display:flex;align-items:center;justify-content:center;color:#2563eb;flex:none">${svg('download', 14)}</div>`
         : `<div style="width:32px;height:32px;flex:none"></div>`;
@@ -477,8 +477,13 @@ function renderHr() {
           <div onclick="setHrReportView('person')" style="padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;${_hrReportView === 'person' ? 'background:#fff;color:#2563eb;box-shadow:0 1px 4px rgba(0,0,0,.1)' : 'color:#64748b'}">บุคคล</div>
           <div onclick="setHrReportView('type')" style="padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;${_hrReportView === 'type' ? 'background:#fff;color:#2563eb;box-shadow:0 1px 4px rgba(0,0,0,.1)' : 'color:#64748b'}">ประเภทการลา</div>
         </div>
-        <div onclick="exportCsv()" style="display:flex;align-items:center;gap:5px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;color:#334155;cursor:pointer">
-          ${svg('download', 13)} Export
+        <div style="display:flex;gap:6px">
+          <div onclick="printDistrictReport()" style="display:flex;align-items:center;gap:5px;border:1px solid #2563eb;background:#eff6ff;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;color:#2563eb;cursor:pointer">
+            ${svg('download', 13)} รายงานส่งเขต
+          </div>
+          <div onclick="exportCsv()" style="display:flex;align-items:center;gap:5px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;color:#334155;cursor:pointer">
+            ${svg('download', 13)} Export
+          </div>
         </div>
       </div>
 
@@ -653,8 +658,8 @@ window.sortHr = (field) => {
 // --- Export CSV ---
 window.exportCsv = () => {
   const rows = _hrData.records;
-  const header = ['ชื่อ-สกุล', 'กลุ่มสาระ/ฝ่าย', 'ประเภทการลา', 'วันเริ่ม', 'วันสิ้นสุด', 'จำนวนวัน', 'สถานะ'];
-  const body = rows.map(r => [r.teacher_name, r.department, r.type_name, normDate(r.start_date), normDate(r.end_date), r.total_days, statusMeta(r.status).label]);
+  const header = ['ชื่อ-สกุล', 'กลุ่มสาระ/ฝ่าย', 'ประเภทการลา', 'วันเริ่ม', 'วันสิ้นสุด', 'ครึ่งวัน', 'จำนวนวัน', 'สถานะ'];
+  const body = rows.map(r => [r.teacher_name, r.department, r.type_name, normDate(r.start_date), normDate(r.end_date), halfDayLabel(r.half_day), r.total_days, statusMeta(r.status).label]);
   const csv = [header, ...body].map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
@@ -672,7 +677,17 @@ window.openOnBehalf = () => {
       <div style="font-size:16px;font-weight:800;margin-bottom:16px">สร้างใบลาแทนครู</div>
       <div style="margin-bottom:12px"><div class="dc-label">เลือกบุคลากร</div><select id="ob-user" class="dc-input" onchange="obFilterTypes()">${teacherOpts}</select></div>
       <div style="margin-bottom:12px"><div class="dc-label">ประเภทการลา</div><select id="ob-type" class="dc-input"></select></div>
-      <div style="margin-bottom:12px"><div class="dc-label">เลือกช่วงวันลา</div>${rangeCalendar('ob')}</div>
+      <div style="margin-bottom:8px"><div class="dc-label">เลือกช่วงวันลา</div>${rangeCalendar('ob', { onchange: 'obSyncHalf()' })}</div>
+      <div id="ob-half-wrap" style="display:none;margin:4px 0 12px">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <label class="dc-half-opt" style="flex:1"><input type="radio" name="ob-dur" value="full" checked onchange="obSyncHalf()"> เต็มวัน</label>
+          <label class="dc-half-opt" style="flex:1"><input type="radio" name="ob-dur" value="half" onchange="obSyncHalf()"> ครึ่งวัน</label>
+        </div>
+        <div id="ob-period" style="display:none;gap:8px">
+          <label class="dc-half-opt" style="flex:1"><input type="radio" name="ob-period" value="morning" checked> เช้า</label>
+          <label class="dc-half-opt" style="flex:1"><input type="radio" name="ob-period" value="afternoon"> บ่าย</label>
+        </div>
+      </div>
       <div style="margin-bottom:18px"><div class="dc-label">เหตุผล</div><textarea id="ob-reason" class="dc-input" style="min-height:60px;resize:vertical"></textarea></div>
       <div style="display:flex;gap:8px">
         <div onclick="closeModal()" class="dc-hover" style="cursor:pointer;flex:1;text-align:center;padding:11px;border:1px solid #e2e8f0;border-radius:10px;font-size:13px;font-weight:700;color:#334155">ยกเลิก</div>
@@ -689,6 +704,16 @@ window.obFilterTypes = () => {
   document.getElementById('ob-type').innerHTML = avail.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
 };
 
+// Show half-day option only when a single day is selected
+window.obSyncHalf = () => {
+  const from = document.getElementById('ob-from').value, to = document.getElementById('ob-to').value;
+  const wrap = document.getElementById('ob-half-wrap'), period = document.getElementById('ob-period');
+  const single = from && to && from === to;
+  wrap.style.display = single ? 'block' : 'none';
+  const durEl = document.querySelector('input[name="ob-dur"]:checked');
+  period.style.display = (single && durEl && durEl.value === 'half') ? 'flex' : 'none';
+};
+
 window.submitOnBehalf = async () => {
   const teacher_id = document.getElementById('ob-user').value;
   const leave_type_id = document.getElementById('ob-type').value;
@@ -697,9 +722,13 @@ window.submitOnBehalf = async () => {
   const reason = document.getElementById('ob-reason').value.trim();
   if (!teacher_id || !start_date || !end_date || !reason) { toast('กรุณากรอกข้อมูลให้ครบถ้วน'); return; }
   if (parseISO(end_date) < parseISO(start_date)) { toast('วันที่ไม่ถูกต้อง'); return; }
+  const durEl = document.querySelector('input[name="ob-dur"]:checked');
+  const isHalf = start_date === end_date && durEl && durEl.value === 'half';
+  const periodEl = document.querySelector('input[name="ob-period"]:checked');
+  const half_day = isHalf ? (periodEl ? periodEl.value : 'morning') : '';
   showLoader(true);
   try {
-    await api.createLeaveOnBehalf({ teacher_id, leave_type_id, start_date, end_date, reason, created_by: currentUser.id });
+    await api.createLeaveOnBehalf({ teacher_id, leave_type_id, start_date, end_date, reason, half_day, created_by: currentUser.id });
     closeModal(); toast('สร้างใบลาแทนครูสำเร็จ'); await loadHr();
   } catch (err) { swalError(err.message); } finally { showLoader(false); }
 };

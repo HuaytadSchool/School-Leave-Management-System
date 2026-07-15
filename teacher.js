@@ -211,7 +211,7 @@ window.renderCalendarTab = (filterType = '') => {
     const ic = r.color_code || typeColor(r.leave_type_id);
     const sm = statusMeta(r.status);
     const from = normDate(r.start_date), to = normDate(r.end_date);
-    const range = from === to ? fmtThai(from) : `${fmtShort(from)} – ${fmtThai(to)}`;
+    const range = (from === to ? fmtThai(from) : `${fmtShort(from)} – ${fmtThai(to)}`) + (r.half_day ? ` (${halfDayLabel(r.half_day)})` : '');
     const isSick = /ป่วย/.test(r.type_name || '');
     return `<div style="background:#fff;border:1px solid #f1f5f9;border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:center">
       <div style="width:44px;height:44px;border-radius:50%;background:${ic};flex:none;display:flex;align-items:center;justify-content:center">
@@ -561,13 +561,14 @@ function renderTeacher(quotas, history) {
   function makeRecordCard(r) {
     const sm = statusMeta(r.status);
     const from = normDate(r.start_date), to = normDate(r.end_date);
-    const range = from === to ? fmtThai(from) : `${fmtShort(from)} - ${fmtThai(to)}`;
+    const range = (from === to ? fmtThai(from) : `${fmtShort(from)} - ${fmtThai(to)}`) + (r.half_day ? ` (${halfDayLabel(r.half_day)})` : '');
     const remark = r.comments
       ? `<div style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;background:#f1f5f9;border-radius:6px;padding:4px 8px;font-size:11px;color:#334155"><strong>ความเห็นผู้อนุมัติ:</strong> ${esc(r.comments)}</div>`
       : '';
-    const cancelBtn = isPending(r.status)
-      ? `<div onclick="cancelRequest('${esc(r.id)}')" style="margin-top:6px;font-size:11px;font-weight:700;color:#b91c1c;cursor:pointer">ยกเลิกคำขอ</div>`
-      : '';
+    const actions = [];
+    if (r.status === 'Pending_HR') actions.push(`<span onclick="editRequest('${esc(r.id)}')" style="font-size:11px;font-weight:700;color:#2563eb;cursor:pointer">แก้ไข</span>`);
+    if (isPending(r.status)) actions.push(`<span onclick="cancelRequest('${esc(r.id)}')" style="font-size:11px;font-weight:700;color:#b91c1c;cursor:pointer">ยกเลิกคำขอ</span>`);
+    const cancelBtn = actions.length ? `<div style="display:flex;gap:16px;margin-top:6px">${actions.join('')}</div>` : '';
     const printBtn = r.status === 'Approved'
       ? `<div onclick="printLeaveForm('${esc(r.id)}')" class="dc-hover" style="margin-top:8px;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid #2563eb;border-radius:8px;font-size:11px;font-weight:700;color:#2563eb;cursor:pointer">${svg('download', 13)} ออกใบลา</div>`
       : '';

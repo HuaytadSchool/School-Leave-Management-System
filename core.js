@@ -3,7 +3,7 @@
 // ===========================================================================
 
 const LIFF_ID = "2010662195-iJjI0NIA";
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyC_vQI6JPAm3A2G_vSGsUSMVXUWfK5I_Po1LIeAM1i4Q8MKfsDKxjihiLFpOrU8pd-Iw/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw9Rz2sUuLhUgZ_xoBHKnRFo7ycy2cTWbmJnoNfyDrDqWTa3FQm6j18x_Pt9CJzhp2Wrw/exec";
 const SCHOOL_LOGO_URL = 'https://img2.pic.in.th/logo-ht.png';
 
 // ---- Global state ----
@@ -45,6 +45,7 @@ const normDate = (v) => (v == null ? '' : String(v).substring(0, 10));
 function parseISO(s) { const [y, m, d] = normDate(s).split('-').map(Number); return new Date(y, m - 1, d); }
 function fmtThai(iso) { const d = parseISO(iso); return `${d.getDate()} ${THAI_MONTHS[d.getMonth()]} ${d.getFullYear() + 543}`; }
 function fmtShort(iso) { const d = parseISO(iso); return `${d.getDate()} ${THAI_MONTHS[d.getMonth()]}`; }
+function halfDayLabel(hd) { return hd === 'morning' ? 'ครึ่งวันเช้า' : hd === 'afternoon' ? 'ครึ่งวันบ่าย' : ''; }
 function daysBetween(from, to) { return Math.round((parseISO(to) - parseISO(from)) / 86400000) + 1; }
 function dateInRange(dateStr, from, to) { const d = parseISO(dateStr).getTime(); return d >= parseISO(from).getTime() && d <= parseISO(to).getTime(); }
 function toISO(y, m, d) { return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`; }

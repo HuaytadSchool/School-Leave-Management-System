@@ -2,14 +2,21 @@
 // admin.js — Admin portal
 // ===========================================================================
 
-let _adminData = { teachers: [], holidays: [], records: [], pendingUsers: [], settings: { approval_steps: 2 } };
+let _adminData = { teachers: [], holidays: [], records: [], pendingUsers: [], settings: { approval_steps: 2 }, auditLog: [] };
 async function loadAdmin() {
-  const [teachers, holidays, records, pendingUsers, settings] = await Promise.all([
-    api.getAllTeachers(), api.getHolidays(), api.getAllLeaveReport(), api.getPendingUsers(), api.getSettings()
+  const [teachers, holidays, records, pendingUsers, settings, auditLog] = await Promise.all([
+    api.getAllTeachers(), api.getHolidays(), api.getAllLeaveReport(), api.getPendingUsers(), api.getSettings(), api.getAuditLog(200)
   ]);
-  _adminData = { teachers, holidays, records, pendingUsers, settings };
+  _adminData = { teachers, holidays, records, pendingUsers, settings, auditLog };
   renderAdmin();
 }
+
+const AUDIT_ACTION_LABELS = {
+  leave_submit: 'ยื่นใบลา', leave_edit: 'แก้ไขใบลา', leave_approve: 'อนุมัติใบลา', leave_reject: 'ปฏิเสธใบลา', leave_cancel: 'ยกเลิกใบลา',
+  leave_on_behalf: 'บันทึกใบลาแทน', user_approve: 'อนุมัติผู้ใช้', user_reject: 'ปฏิเสธผู้ใช้', user_create: 'เพิ่มผู้ใช้',
+  user_update: 'แก้ไขผู้ใช้', user_delete: 'ลบผู้ใช้', quota_update: 'แก้โควตา', holiday_create: 'เพิ่มวันหยุด',
+  holiday_update: 'แก้วันหยุด', holiday_delete: 'ลบวันหยุด', yearly_reset: 'ยกยอดข้ามปี', settings_save: 'ตั้งค่าระบบ'
+};
 
 function renderAdmin() {
   const s = _adminData;
@@ -169,7 +176,40 @@ function renderAdmin() {
       <div onclick="saveSystemSettings()" class="dc-hover" style="cursor:pointer;display:inline-block;background:#2563eb;color:#fff;padding:10px 22px;border-radius:9px;font-size:13px;font-weight:700">บันทึกการตั้งค่า</div>
     </div>`;
 
-  const pageTitles = ['จัดการผู้ใช้งาน', 'ประเภทการลา/โควตา', 'วันหยุดราชการ', 'ผู้ลงนามในใบลา', 'พื้นที่อันตราย', 'ตั้งค่าระบบ'];
+  const actorName = (actor) => {
+    if (actor === 'Admin') return 'ผู้ดูแลระบบ';
+    if (actor === 'HR') return 'ฝ่ายบุคคล';
+    const t = s.teachers.find(x => x.id == actor);
+    return t ? `${t.prefix || ''}${t.name} ${t.surname || ''}`.trim() : (actor || '-');
+  };
+  const auditRows = (s.auditLog || []).map(a => {
+    const label = AUDIT_ACTION_LABELS[a.action] || a.action;
+    const isLeave = String(a.action).indexOf('leave') === 0;
+    const color = a.action === 'yearly_reset' || String(a.action).indexOf('delete') > -1 || a.action === 'leave_reject'
+      ? '#b91c1c' : (isLeave ? '#2563eb' : '#0369a1');
+    return `<tr class="dc-row">
+      <td style="padding:9px 8px;border-bottom:1px solid #f1f5f9;color:#64748b;white-space:nowrap;font-size:12px">${esc(fmtAuditTime(a.timestamp))}</td>
+      <td style="padding:9px 8px;border-bottom:1px solid #f1f5f9;font-weight:600">${esc(actorName(a.actor))}</td>
+      <td style="padding:9px 8px;border-bottom:1px solid #f1f5f9"><span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;background:${color}18;color:${color}">${esc(label)}</span></td>
+      <td style="padding:9px 8px;border-bottom:1px solid #f1f5f9;color:#475569;font-size:12.5px">${esc(a.detail || '')}</td>
+    </tr>`;
+  }).join('');
+  const tab6 = `
+    <div style="font-size:18px;font-weight:800;margin-bottom:6px">ประวัติการใช้งานระบบ (Audit Log)</div>
+    <div style="font-size:13px;color:#64748b;margin-bottom:16px">บันทึกการเปลี่ยนแปลงข้อมูล ${(s.auditLog || []).length} รายการล่าสุด</div>
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr>
+          <th style="text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0">เวลา</th>
+          <th style="text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0">ผู้ทำรายการ</th>
+          <th style="text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0">การกระทำ</th>
+          <th style="text-align:left;padding:9px 8px;color:#64748b;font-size:11px;text-transform:uppercase;border-bottom:2px solid #e2e8f0">รายละเอียด</th>
+        </tr></thead>
+        <tbody>${auditRows || '<tr><td colspan="4" style="padding:24px;text-align:center;color:#94a3b8">ยังไม่มีประวัติการใช้งาน</td></tr>'}</tbody>
+      </table>
+    </div>`;
+
+  const pageTitles = ['จัดการผู้ใช้งาน', 'ประเภทการลา/โควตา', 'วันหยุดราชการ', 'ผู้ลงนามในใบลา', 'พื้นที่อันตราย', 'ตั้งค่าระบบ', 'ประวัติการใช้งาน'];
 
   document.getElementById('view-admin').innerHTML = `
     <div class="dc-shell" style="display:flex;min-height:100vh">
@@ -178,9 +218,18 @@ function renderAdmin() {
         <div style="margin-bottom:22px">
           <div style="font-size:22px;font-weight:800">${pageTitles[tab]}</div>
         </div>
-        ${[tab0, tab1, tab2, tab3, tab4, tab5][tab] || ''}
+        ${[tab0, tab1, tab2, tab3, tab4, tab5, tab6][tab] || ''}
       </div>
     </div>`;
+}
+
+// Audit timestamp (ISO) → Thai date + time
+function fmtAuditTime(ts) {
+  if (!ts) return '-';
+  const d = new Date(ts);
+  if (isNaN(d)) return String(ts);
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${fmtShort(toISO(d.getFullYear(), d.getMonth(), d.getDate()))} ${time}`;
 }
 
 window.approvePendingUser = async (id) => {
@@ -221,12 +270,16 @@ window.removeUser = async (id) => {
   try { await api.deleteTeacher(id); toast('ลบผู้ใช้งานแล้ว'); await loadAdmin(); }
   catch (err) { swalError(err.message); } finally { showLoader(false); }
 };
-window.saveDocConfig = () => {
-  DIRECTOR_NAME = document.getElementById('cfg-director').value.trim();
-  PREPARER_NAME = document.getElementById('cfg-preparer').value.trim();
-  localStorage.setItem('director_name', DIRECTOR_NAME);
-  localStorage.setItem('preparer_name', PREPARER_NAME);
-  toast('บันทึกข้อมูลผู้ลงนามเรียบร้อย');
+window.saveDocConfig = async () => {
+  const director_name = document.getElementById('cfg-director').value.trim();
+  const preparer_name = document.getElementById('cfg-preparer').value.trim();
+  showLoader(true);
+  try {
+    await api.saveSettings({ director_name, preparer_name });
+    DIRECTOR_NAME = director_name;
+    PREPARER_NAME = preparer_name;
+    toast('บันทึกข้อมูลผู้ลงนามเรียบร้อย');
+  } catch (err) { swalError(err.message); } finally { showLoader(false); }
 };
 window.saveSystemSettings = async () => {
   const selected = document.querySelector('input[name="approval_steps"]:checked');

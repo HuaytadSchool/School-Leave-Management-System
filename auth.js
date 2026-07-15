@@ -152,12 +152,11 @@ function showView(id) {
 async function routeByRole() {
   showLoader(true);
   try {
-    const [lt, hol, sig] = await Promise.all([api.getLeaveTypes(), api.getHolidays(), api.getSignatories()]);
+    const [lt, hol, sig, settings] = await Promise.all([api.getLeaveTypes(), api.getHolidays(), api.getSignatories(), api.getSettings()]);
     leaveTypes = lt; _holidays = hol;
-    if (sig) {
-      if (sig.director) { DIRECTOR_NAME = sig.director; localStorage.setItem('director_name', sig.director); }
-      if (sig.hr)       { PREPARER_NAME = sig.hr;       localStorage.setItem('preparer_name', sig.hr); }
-    }
+    // Signatory names from DB: manual config (settings) overrides role-based (getSignatories)
+    DIRECTOR_NAME = (settings && settings.director_name) || (sig && sig.director) || '';
+    PREPARER_NAME = (settings && settings.preparer_name) || (sig && sig.hr) || '';
     await reloadPortal();
   } catch (err) { swalError(err.message); }
   finally { showLoader(false); }

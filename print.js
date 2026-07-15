@@ -3,8 +3,9 @@
 // ===========================================================================
 
 const SCHOOL_NAME = 'โรงเรียนบ้านห้วยตาด';
-let DIRECTOR_NAME  = localStorage.getItem('director_name')  || '';
-let PREPARER_NAME  = localStorage.getItem('preparer_name')  || '';
+// Populated from DB settings at boot (auth.js routeByRole); shared for all users
+let DIRECTOR_NAME  = '';
+let PREPARER_NAME  = '';
 
 function leaveKind(name) {
   const n = String(name || '');
@@ -68,7 +69,7 @@ function buildLeaveFormHtml(rec, teacher, quotas) {
 
     <div style="margin-top:6px">ขอลา ${box(kind === 'sick')} ป่วย ${box(kind === 'personal')} กิจส่วนตัว ${box(kind === 'maternity')} คลอดบุตร</div>
     <div>เนื่องจาก ${fill(rec.reason, '560px')}</div>
-    <div>ตั้งแต่วันที่ ${fill(fmtThai(from), '180px')} ถึงวันที่ ${fill(fmtThai(to), '180px')} มีกำหนด ${fill(rec.total_days, '50px')} วัน</div>
+    <div>ตั้งแต่วันที่ ${fill(fmtThai(from), '180px')} ถึงวันที่ ${fill(fmtThai(to), '180px')} มีกำหนด ${fill(rec.total_days, '50px')} วัน${rec.half_day ? ' (' + halfDayLabel(rec.half_day) + ')' : ''}</div>
     <div>ในระหว่างลาจะติดต่อข้าพเจ้าได้ที่ ${fill('', '360px')}</div>
     <div>หมายเลขโทรศัพท์ ${fill(teacher.phone, '220px')}</div>
 
@@ -115,6 +116,79 @@ function buildLeaveFormHtml(rec, teacher, quotas) {
     </div>
   </div>`;
 }
+
+// District summary report: per-teacher leave days by type for a fiscal year (1 Oct – 30 Sep)
+window.printDistrictReport = () => {
+  const nowBE = new Date().getMonth() >= 9 ? new Date().getFullYear() + 544 : new Date().getFullYear() + 543;
+  const ce = nowBE - 543;
+  const fyStart = `${ce - 1}-10-01`, fyEnd = `${ce}-09-30`;
+
+  const records = (_hrData.records || []).filter(r =>
+    r.status === 'Approved' && normDate(r.start_date) >= fyStart && normDate(r.start_date) <= fyEnd
+  );
+  if (!records.length) { toast('ไม่มีข้อมูลการลาที่อนุมัติในปีงบประมาณนี้'); return; }
+
+  // Group by teacher → days per leave type
+  const byTeacher = {};
+  records.forEach(r => {
+    const t = byTeacher[r.teacher_id] || (byTeacher[r.teacher_id] = { name: r.teacher_name, dept: r.department, byType: {}, total: 0 });
+    const days = Number(r.total_days) || 0;
+    t.byType[r.leave_type_id] = (t.byType[r.leave_type_id] || 0) + days;
+    t.total += days;
+  });
+  const teacherObj = (id) => (_hrData.teachers || []).find(x => x.id == id) || {};
+  const rows = Object.keys(byTeacher).map(id => ({ id, ...byTeacher[id], position: teacherObj(id).position || 'ครู' }))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'th'));
+
+  const types = leaveTypes || [];
+  const th = (t, extra) => `<th style="border:1px solid #000;padding:6px 8px;font-size:12px;${extra || ''}">${t}</th>`;
+  const td = (t, extra) => `<td style="border:1px solid #000;padding:5px 8px;font-size:12px;${extra || ''}">${t}</td>`;
+
+  const totalsByType = {};
+  let grandTotal = 0;
+  rows.forEach(r => { types.forEach(ty => { totalsByType[ty.id] = (totalsByType[ty.id] || 0) + (r.byType[ty.id] || 0); }); grandTotal += r.total; });
+
+  const bodyRows = rows.map((r, i) => `<tr>
+    ${td(i + 1, 'text-align:center')}
+    ${td(esc(r.name))}
+    ${td(esc(r.position), 'text-align:center')}
+    ${types.map(ty => td(r.byType[ty.id] ? r.byType[ty.id] : '-', 'text-align:center')).join('')}
+    ${td(r.total || '-', 'text-align:center;font-weight:700')}
+  </tr>`).join('');
+
+  const body = `
+  <div style="max-width:1000px;margin:0 auto;padding:32px 36px;font-family:'Sarabun',sans-serif;color:#000">
+    <div style="text-align:center;font-size:18px;font-weight:700">รายงานสรุปสถิติการลาของข้าราชการครูและบุคลากร</div>
+    <div style="text-align:center;font-size:15px;margin-top:4px">${esc(SCHOOL_NAME)}</div>
+    <div style="text-align:center;font-size:14px;margin:4px 0 18px">ปีงบประมาณ ${nowBE} (1 ตุลาคม ${ce - 1 + 543} – 30 กันยายน ${ce + 543})</div>
+    <table style="border-collapse:collapse;width:100%">
+      <thead><tr>
+        ${th('ที่', 'width:36px')}${th('ชื่อ-สกุล')}${th('ตำแหน่ง')}
+        ${types.map(ty => th(esc(ty.name))).join('')}${th('รวม (วัน)')}
+      </tr></thead>
+      <tbody>${bodyRows}
+        <tr style="background:#f1f5f9;font-weight:700">
+          ${td('', 'text-align:center')}${td('รวมทั้งสิ้น', 'text-align:center')}${td('')}
+          ${types.map(ty => td(totalsByType[ty.id] || '-', 'text-align:center')).join('')}
+          ${td(grandTotal || '-', 'text-align:center')}
+        </tr>
+      </tbody>
+    </table>
+    <div style="display:flex;justify-content:space-around;margin-top:48px;font-size:14px;text-align:center">
+      <div>
+        <div>ลงชื่อ ................................................</div>
+        <div style="margin-top:4px">( ${PREPARER_NAME ? esc(PREPARER_NAME) : '................................................'} )</div>
+        <div style="margin-top:2px">ผู้จัดทำ / ฝ่ายบุคคล</div>
+      </div>
+      <div>
+        <div>ลงชื่อ ................................................</div>
+        <div style="margin-top:4px">( ${DIRECTOR_NAME ? esc(DIRECTOR_NAME) : '................................................'} )</div>
+        <div style="margin-top:2px">ผู้อำนวยการ${esc(SCHOOL_NAME)}</div>
+      </div>
+    </div>
+  </div>`;
+  openPrint(body);
+};
 
 function openPrint(bodyHtml) {
   const w = window.open('', '_blank', 'width=820,height=1000');

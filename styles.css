@@ -40,6 +40,14 @@ input, textarea, select { font-family: 'Sarabun', system-ui, sans-serif; }
 }
 .dc-btn-primary:hover { background: #1d4ed8; }
 
+/* ===== Half-day radio option ===== */
+.dc-half-opt {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px; border: 1px solid #e2e8f0; border-radius: 9px;
+  font-size: 13px; font-weight: 600; color: #334155; cursor: pointer;
+}
+.dc-half-opt:has(input:checked) { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
+
 /* ===== Generic hover for dynamic cards/buttons ===== */
 .dc-hover:hover { filter: brightness(.97); }
 .dc-row:hover { background: #f8fafc; }
