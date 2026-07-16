@@ -3,7 +3,7 @@
 // ===========================================================================
 
 let _teacherData = { quotas: [], history: [] };
-let _calYear = 0, _calMonth = 0, _calFilter = '';
+let _calYear = 0, _calMonth = 0, _calFilter = '', _calShown = 10;
 let _statsAcadYear = 0;
 
 async function loadTeacher() {
@@ -144,6 +144,7 @@ window.calToday = () => {
 };
 window.renderCalendarTab = (filterType = '') => {
   if (!_calYear) { const d = new Date(); _calYear = d.getFullYear(); _calMonth = d.getMonth(); }
+  if (String(filterType || '') !== _calFilter) _calShown = 10; // reset paging when filter changes
   _calFilter = String(filterType || '');
   const el = document.getElementById('tt-calendar');
   if (!el) return;
@@ -207,7 +208,8 @@ window.renderCalendarTab = (filterType = '') => {
   const SP  = '<line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>';
   const CHEV = '<polyline points="9 18 15 12 9 6"/>';
   const FILTER_ICO = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`;
-  const listRows = filtered.map(r => {
+  const shown = filtered.slice(0, _calShown);
+  const listRows = shown.map(r => {
     const ic = r.color_code || typeColor(r.leave_type_id);
     const sm = statusMeta(r.status);
     const from = normDate(r.start_date), to = normDate(r.end_date);
@@ -226,6 +228,9 @@ window.renderCalendarTab = (filterType = '') => {
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none">${CHEV}</svg>
     </div>`;
   }).join('') || `<div style="font-size:13px;color:#94a3b8;padding:24px;text-align:center">ไม่มีรายการลา</div>`;
+  const moreBtn = filtered.length > _calShown
+    ? `<div onclick="calShowMore()" style="text-align:center;font-size:13px;font-weight:700;color:#2563eb;background:#eff6ff;border-radius:12px;padding:12px;cursor:pointer">ดูเพิ่มเติม (${filtered.length - _calShown})</div>`
+    : '';
 
   el.innerHTML = `
     <div style="padding:16px 14px 140px">
@@ -252,9 +257,10 @@ window.renderCalendarTab = (filterType = '') => {
           <select onchange="renderCalendarTab(this.value)" style="font-size:12px;font-weight:600;border:1px solid #e2e8f0;border-radius:8px;padding:4px 8px;color:#334155;background:#fff;cursor:pointer">${typeOpts}</select>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:10px">${listRows}</div>
+      <div style="display:flex;flex-direction:column;gap:10px">${listRows}${moreBtn}</div>
     </div>`;
 };
+window.calShowMore = () => { _calShown += 10; renderCalendarTab(_calFilter); };
 
 // ── Stats tab ──
 window.statsSelectYear = (y) => { _statsAcadYear = y; closeModal(); renderStatsTab(); };
@@ -653,7 +659,7 @@ function renderTeacher(quotas, history) {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${BELL_PATH}</svg>
                 ${unreadCount > 0 ? `<div id="noti-badge" style="position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;background:#ef4444;border-radius:999px;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;padding:0 3px">${unreadCount > 9 ? '9+' : unreadCount}</div>` : '<div id="noti-badge" style="display:none"></div>'}
               </div>
-              <div onclick="logout()" style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff">
+              <div onclick="logout()" style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.95);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#1d4ed8;box-shadow:0 2px 8px rgba(0,0,0,0.12)">
                 ${svg('logout', 18)}
               </div>
             </div>

@@ -89,8 +89,8 @@ function countDaysClient(from, to, mode) {
   }
   return c;
 }
-// Allowed leave window (mirrors server submitLeaveRequest): back ≤30 days, forward ≤365 days
-const LEAVE_BACK_DAYS = 30, LEAVE_FWD_DAYS = 365;
+// Allowed leave window (mirrors server submitLeaveRequest): back ≤30 days, forward ≤30 days
+const LEAVE_BACK_DAYS = 30, LEAVE_FWD_DAYS = 30;
 function leaveDateError(from) {
   if (!from) return '';
   const diff = Math.round((parseISO(from) - parseISO(todayISO())) / 86400000);
