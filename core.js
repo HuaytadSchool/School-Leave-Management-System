@@ -3,7 +3,7 @@
 // ===========================================================================
 
 const LIFF_ID = "2010662195-iJjI0NIA";
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzPEf92hgopK3LNVPm9w3jC2bgWHS1txKdbJ0R2lZsxYg9_BwqNgocDtW6E9O4-B6KNuw/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxPkV3mfbBDrYWv2wVCXUVB3yznyYfET6VrBc6srhFF3ymQZlw8Up8CDIHaQMkhCrTFrg/exec";
 const SCHOOL_LOGO_URL = 'https://img2.pic.in.th/logo-ht.png';
 
 // ---- Global state ----

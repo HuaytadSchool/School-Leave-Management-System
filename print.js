@@ -73,7 +73,7 @@ function buildLeaveFormHtml(rec, teacher, quotas) {
     <div style="text-align:right">เขียนที่ ${fill(SCHOOL_NAME, '200px')}</div>
     <div style="text-align:center">วันที่ ${fill(doc.getDate(), '40px')} เดือน ${fill(THAI_MONTHS_FULL[doc.getMonth()], '120px')} พ.ศ. ${fill(doc.getFullYear() + 543, '70px')}</div>
 
-    <div>เรื่อง ${fill('ขอลา' + (rec.type_name || typeName(rec.leave_type_id)), '300px')}</div>
+    <div>เรื่อง ${fill('ขอลา' + String(rec.type_name || typeName(rec.leave_type_id)).replace(/^ลา/, ''), '300px')}</div>
     <div>เรียน ${fill('ผู้อำนวยการ' + SCHOOL_NAME + (DIRECTOR_NAME ? ' (' + DIRECTOR_NAME + ')' : ''), '480px')}</div>
 
     <div style="margin-top:6px">ข้าพเจ้า ${fill(name, '260px')} ตำแหน่ง ${fill(position, '200px')}</div>

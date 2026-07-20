@@ -469,6 +469,11 @@ function renderTeacher(quotas, history) {
   const fullName = `${u.prefix || ''}${u.name} ${u.surname || ''}`.trim();
   const aColor = avatarColor(u.id);
 
+  // Hide gender-mismatched leave types (e.g. ลาคลอด for males) — quotas are
+  // seeded for all types, so filter the display to what this user can actually take.
+  const allowedIds = new Set(availableTypesFor(u.prefix, u.gender).map(t => t.id));
+  quotas = (quotas || []).filter(q => allowedIds.has(q.leave_type_id));
+
   const WARN_TIMES  = 6;
   const DANGER_DAYS = 23;
 
