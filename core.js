@@ -3,7 +3,7 @@
 // ===========================================================================
 
 const LIFF_ID = "2010662195-iJjI0NIA";
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxn4UuB8nrawYorYHm-fZncyX4aRr2aAbdgZ4CIxe2k5zcBEj1h8CECF7hkQa_ed8kxqw/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwKDRfbxZUJMxwZUVTUi99T9Yd7dFMxI3bxADV9Wdmxcdm45oXoNdli7rbjFiNLnpWj3g/exec";
 const SCHOOL_LOGO_URL = 'https://img2.pic.in.th/logo-ht.png';
 
 // ---- Global state ----
@@ -26,10 +26,12 @@ const FEMALE_PREFIXES = ['นาง', 'นางสาว', 'ว่าที่�
 const isMalePrefix = (p) => MALE_PREFIXES.includes(p);
 const isFemalePrefix = (p) => FEMALE_PREFIXES.includes(p);
 
-function availableTypesFor(prefix) {
+function availableTypesFor(prefix, gender) {
+  const isMale = gender === 'male' || (!gender && isMalePrefix(prefix));
+  const isFemale = gender === 'female' || (!gender && isFemalePrefix(prefix));
   return leaveTypes.filter(lt => {
-    if (lt.gender === 'female' && isMalePrefix(prefix)) return false;
-    if (lt.gender === 'male' && isFemalePrefix(prefix)) return false;
+    if (lt.gender === 'female' && isMale) return false;
+    if (lt.gender === 'male' && isFemale) return false;
     return true;
   });
 }

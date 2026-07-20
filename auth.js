@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await liff.init({ liffId: LIFF_ID });
       if (!liff.isLoggedIn()) { showView('landing'); showLoader(false); return; }
       currentLineProfile = await liff.getProfile();
-      await authenticateUser(currentLineProfile.userId);
+      await authenticateUser(currentLineProfile.userId, currentLineProfile.pictureUrl);
     } else {
       await authenticateUser('mock_line_user_id');
     }
@@ -57,9 +57,9 @@ window.openAdminLogin = () => {
   });
 };
 
-async function authenticateUser(lineUserId) {
+async function authenticateUser(lineUserId, pictureUrl) {
   try {
-    const user = await api.getTeacherByLineId(lineUserId);
+    const user = await api.getTeacherByLineId(lineUserId, pictureUrl || '');
     if (user && user.status === 'Active') { currentUser = user; await routeByRole(); }
     else if (user && user.status === 'Pending') { showLoader(false); showStatusScreen('pending', user); }
     else if (user && user.status === 'Rejected') { showLoader(false); showStatusScreen('rejected', user); }
@@ -72,7 +72,12 @@ async function authenticateUser(lineUserId) {
 
 function mountRegDate() {
   const m = document.getElementById('reg-prefix-mount');
-  if (m && !m.innerHTML) m.innerHTML = prefixSelectHtml('reg', '');
+  if (m && !m.innerHTML) m.innerHTML = prefixSelectHtml('reg', '') +
+    `<select id="reg-gender" class="dc-input" required style="margin-top:6px">
+      <option value="" disabled selected>เพศ</option>
+      <option value="male">ชาย</option>
+      <option value="female">หญิง</option>
+    </select>`;
 }
 
 function prefixSelectHtml(id, current) {
@@ -122,7 +127,9 @@ document.getElementById('form-bind-user').addEventListener('submit', async (e) =
       department: document.getElementById('teacherDept').value.trim(),
       phone: document.getElementById('teacherPhone').value.trim(),
       email: document.getElementById('teacherEmail').value.trim(),
-      line_user_id: currentLineProfile ? currentLineProfile.userId : 'mock_line_user_id'
+      line_user_id: currentLineProfile ? currentLineProfile.userId : 'mock_line_user_id',
+      photo_url: currentLineProfile ? currentLineProfile.pictureUrl || '' : '',
+      gender: document.getElementById('reg-gender').value
     };
     currentUser = await api.registerTeacher(payload);
     if (currentUser.status === 'Active') { toast('ลงทะเบียนสำเร็จ'); await routeByRole(); }

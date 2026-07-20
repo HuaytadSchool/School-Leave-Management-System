@@ -217,7 +217,8 @@ function renderHr() {
             <span style="font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:${r.color_code}22;color:${r.color_code};white-space:nowrap">${esc(r.type_name)}</span>
           </div>
           <div style="font-size:11.5px;color:#475569;margin-bottom:2px">${range} (${r.total_days} วัน)</div>
-          ${submittedAt ? `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:10px">${submittedAt}</div>` : ''}
+          ${submittedAt ? `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:${r.attachment_url ? '4' : '10'}px">${submittedAt}</div>` : ''}
+          ${r.attachment_url ? `<div style="margin-bottom:10px"><a href="${esc(r.attachment_url)}" target="_blank" style="color:#2563eb;font-size:11px;display:inline-flex;align-items:center;gap:3px">${svg('paperclip', 11)} เอกสารแนบ</a></div>` : ''}
           <div style="display:flex;gap:8px">
             <div onclick="decideRequest('${esc(r.id)}','approve')" class="dc-hover" style="cursor:pointer;flex:1;display:flex;align-items:center;justify-content:center;gap:5px;border:1.5px solid #16a34a;color:#16a34a;padding:7px;border-radius:8px;font-size:12px;font-weight:700">
               ${svg('check', 13)} อนุมัติ
@@ -700,7 +701,7 @@ window.openOnBehalf = () => {
 
 window.obFilterTypes = () => {
   const teacher = _hrData.teachers.find(t => t.id == document.getElementById('ob-user').value);
-  const avail = availableTypesFor(teacher ? teacher.prefix : '');
+  const avail = availableTypesFor(teacher ? teacher.prefix : '', teacher ? teacher.gender : '');
   document.getElementById('ob-type').innerHTML = avail.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join('');
 };
 

@@ -13,7 +13,7 @@ function overlay(inner, align = 'center') {
 // ---- Teacher: leave form (editReq set → edit mode for a Pending_HR request) ----
 window.openLeaveForm = (editReq) => {
   const editing = !!editReq;
-  const avail = availableTypesFor(currentUser.prefix);
+  const avail = availableTypesFor(currentUser.prefix, currentUser.gender);
   const typeOpts = avail.map(lt => `<option value="${esc(lt.id)}" ${editing && editReq.leave_type_id == lt.id ? 'selected' : ''}>${esc(lt.name)}</option>`).join('');
   const inner = `
     <div style="width:100vw;max-width:430px;background:#fff;border-radius:20px 20px 0 0;padding:22px 20px 28px;max-height:88vh;overflow-y:auto;animation:fadeUp .25s ease">
