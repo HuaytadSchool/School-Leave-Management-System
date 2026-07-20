@@ -15,6 +15,18 @@ function leaveKind(name) {
   return '';
 }
 
+// Build "คำนำหน้า+ชื่อ สกุล" with a single space before the surname, collapsing
+// any doubles. Guards the name-sticking bug when name/surname arrive merged or
+// when the HR fallback passes a pre-joined teacher_name with no surname field.
+function fullName(t) {
+  const prefix = String(t.prefix || '').trim();
+  const name = String(t.name || '').trim();
+  const surname = String(t.surname || '').trim();
+  // If name already ends with the surname (pre-joined), don't append it twice.
+  const base = surname && !name.endsWith(surname) ? `${name} ${surname}` : name;
+  return `${prefix}${base}`.replace(/\s+/g, ' ').trim();
+}
+
 window.printLeaveForm = (reqId) => {
   const rec = _teacherData.history.find(r => r.id == reqId);
   if (!rec) { toast('ไม่พบข้อมูลใบลา'); return; }
@@ -34,7 +46,7 @@ function buildLeaveFormHtml(rec, teacher, quotas) {
   const kind = leaveKind(rec.type_name || typeName(rec.leave_type_id));
   const doc = rec.created_at ? new Date(rec.created_at) : new Date();
   const from = normDate(rec.start_date), to = normDate(rec.end_date);
-  const name = `${teacher.prefix || ''}${teacher.name || ''} ${teacher.surname || ''}`.trim();
+  const name = fullName(teacher);
   const position = teacher.position || (ROLE_META[teacher.role] ? ROLE_META[teacher.role].label : 'ครู');
 
   const statRow = (label, matcher) => {
@@ -55,8 +67,8 @@ function buildLeaveFormHtml(rec, teacher, quotas) {
   const line = 'display:inline-block;border-bottom:1px dotted #000;';
 
   return `
-  <div style="max-width:720px;margin:0 auto;padding:36px 40px;font-family:'Sarabun',sans-serif;font-size:15px;color:#000;line-height:2.1">
-    <div style="text-align:center;font-size:18px;font-weight:700;margin-bottom:14px">แบบใบลาป่วย ลาคลอดบุตร ลากิจส่วนตัว</div>
+  <div style="max-width:720px;margin:0 auto;padding:20px 40px;font-family:'Sarabun',sans-serif;font-size:14px;color:#000;line-height:1.85">
+    <div style="text-align:center;font-size:17px;font-weight:700;margin-bottom:10px">แบบใบลาป่วย ลาคลอดบุตร ลากิจส่วนตัว</div>
 
     <div style="text-align:right">เขียนที่ ${fill(SCHOOL_NAME, '200px')}</div>
     <div style="text-align:center">วันที่ ${fill(doc.getDate(), '40px')} เดือน ${fill(THAI_MONTHS_FULL[doc.getMonth()], '120px')} พ.ศ. ${fill(doc.getFullYear() + 543, '70px')}</div>
@@ -73,10 +85,10 @@ function buildLeaveFormHtml(rec, teacher, quotas) {
     <div>ในระหว่างลาจะติดต่อข้าพเจ้าได้ที่ ${fill('', '360px')}</div>
     <div>หมายเลขโทรศัพท์ ${fill(teacher.phone, '220px')}</div>
 
-    <div style="text-align:center;margin-top:22px">(ลงชื่อ) <span style="${line}min-width:220px">&nbsp;</span> ผู้ลา</div>
+    <div style="text-align:center;margin-top:14px">(ลงชื่อ) <span style="${line}min-width:220px">&nbsp;</span> ผู้ลา</div>
     <div style="text-align:center">( ${esc(name)} )</div>
 
-    <div style="display:flex;gap:24px;margin-top:26px;align-items:flex-start">
+    <div style="display:flex;gap:24px;margin-top:16px;align-items:flex-start">
       <div style="flex:1">
         <div style="font-weight:700;margin-bottom:6px">สถิติการลาในปีงบประมาณนี้</div>
         <table style="border-collapse:collapse;width:100%;font-size:14px;line-height:1.4">
